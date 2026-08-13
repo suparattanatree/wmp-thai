@@ -204,6 +204,9 @@ private struct GeneralPane: View {
                 LabeledContent("เลย์เอาต์", value: layoutSummary)
                 LabeledContent("ย้อนการแก้ล่าสุด", value: "⌃⌥Z")
                 LabeledContent("สลับคำล่าสุดเอง", value: "⌃⌥L")
+                LabeledContent("สนับสนุน") {
+                    Link("ko-fi.com/memorist", destination: URL(string: "https://ko-fi.com/memorist")!)
+                }
             }
         }
         .formStyle(.grouped)

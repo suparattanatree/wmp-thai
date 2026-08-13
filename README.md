@@ -154,3 +154,7 @@ App Store ไปไม่ได้ เพราะแอปบนสโตร์
 
 ทางที่ไปได้คือเซ็นด้วย Developer ID แล้ว notarize จากนั้นแจกเป็น DMG ด้วย `./package_dmg.sh`
 หรือปล่อยผ่าน GitHub Releases ด้วย `./release.sh <version>`
+
+## สนับสนุน
+
+ถ้าเครื่องมือนี้มีประโยชน์ สนับสนุนได้ที่ https://ko-fi.com/memorist

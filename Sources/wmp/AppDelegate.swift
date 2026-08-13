@@ -195,6 +195,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let preferences = NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ",")
         preferences.target = self
         menu.addItem(preferences)
+        let support = NSMenuItem(title: "Support", action: #selector(openSupport), keyEquivalent: "")
+        support.target = self
+        menu.addItem(support)
         menu.addItem(NSMenuItem(title: "Quit wmp-ไทย", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
     }
 
@@ -225,6 +228,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func convertLastWord() { engine?.convertSelection(fromMenu: true) }
     @objc private func revertLastFix() { engine?.revertLastFix(fromMenu: true) }
     @objc private func openSettings() { settingsWindow?.show() }
+
+    @objc private func openSupport() {
+        NSWorkspace.shared.open(URL(string: "https://ko-fi.com/memorist")!)
+    }
 
     /// Back to a menu bar only app once the window is gone, so it stays out of
     /// the Dock and the app switcher.
