@@ -32,15 +32,28 @@ final class Replayer {
             let target = before.unicodeScalars.count - wanted
             var attempts = 0
             var current = before
+            var blind = false
             while current.unicodeScalars.count > target, attempts < wanted + 4 {
                 postKey(deleteKeycode)
                 attempts += 1
-                guard let now = waitForChange(from: current) else { break }
+                guard let now = waitForChange(from: current) else {
+                    // The field stopped reporting changes. Rather than give up
+                    // mid-way and leave half the word behind ("fe" in front of a
+                    // corrected word), finish by count: one delete per remaining
+                    // key press, which is what a plain text field does.
+                    blind = true
+                    break
+                }
                 current = now
             }
-            let overshoot = target - current.unicodeScalars.count
-            if overshoot > 0 {
-                restore = String(String.UnicodeScalarView(before.unicodeScalars.dropLast(wanted).suffix(overshoot)))
+            if blind {
+                let remaining = current.unicodeScalars.count - target
+                for _ in 0..<max(0, remaining) { postKey(deleteKeycode) }
+            } else {
+                let overshoot = target - current.unicodeScalars.count
+                if overshoot > 0 {
+                    restore = String(String.UnicodeScalarView(before.unicodeScalars.dropLast(wanted).suffix(overshoot)))
+                }
             }
         } else {
             // No readable field (terminals, secure input): fall back to counting
@@ -55,7 +68,7 @@ final class Replayer {
     /// actually change. Nil means it never did: the field is not one we can read
     /// our way through, so stop rather than hammer it with more deletes.
     private func waitForChange(from previous: String) -> String? {
-        for _ in 0..<12 {
+        for _ in 0..<24 {
             usleep(2500)
             guard let now = probe.focusedText() else { return nil }
             if now != previous { return now }
@@ -90,8 +103,10 @@ final class Replayer {
         guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
               let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
         else { return }
+        // Only the key-down carries the text. Chromium and Electron insert on
+        // both edges, so putting the string on the key-up as well types every
+        // character twice: "ที่ใช้" came out as "ททีี่่ใใชช้้".
         down.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
-        up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
         stamp(down); stamp(up)
         down.post(tap: .cgSessionEventTap)
         usleep(interEventDelay)
