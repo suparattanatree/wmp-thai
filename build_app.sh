@@ -6,7 +6,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 APP="wmp-ไทย.app"
 VERSION=$(cat VERSION)
-BUILD=$(git rev-list --count HEAD 2>/dev/null || echo 1)
+# CFBundleVersion is what Sparkle compares, so it has to be the release number.
+# A commit count here made an old build look newer than the release.
 REPO="suparattanatree/wmp-thai"
 FEED="https://raw.githubusercontent.com/$REPO/main/appcast.xml"
 PUBLIC_KEY="PHXKGwqMCkSIbyTO2XE9xgesIyPr4ACaCFDsU4+q3Gs="
@@ -42,7 +43,7 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key><string>me.xaou.wmpthai</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
-    <key>CFBundleVersion</key><string>$BUILD</string>
+    <key>CFBundleVersion</key><string>$VERSION</string>
     <key>WMPUpdateRepository</key><string>$REPO</string>
     <key>SUFeedURL</key><string>$FEED</string>
     <key>SUPublicEDKey</key><string>$PUBLIC_KEY</string>

@@ -35,6 +35,7 @@ struct SettingsView: View {
     let corrector: Corrector
     let layoutSummary: String
     @ObservedObject var status: RuntimeStatus
+    @StateObject private var updates = UpdateChecker()
 
     @State private var pane: Pane = .general
 
@@ -69,6 +70,10 @@ struct SettingsView: View {
                 Label(item.title, systemImage: item.symbol).tag(item)
             }
             .navigationSplitViewColumnWidth(min: 168, ideal: 176, max: 200)
+            .safeAreaInset(edge: .bottom) {
+                VersionFooter(updates: updates)
+            }
+            .task { updates.check() }
         } detail: {
             VStack(spacing: 0) {
                 if !status.state.isLive {
@@ -131,7 +136,6 @@ private struct GeneralPane: View {
     @ObservedObject var settings: Settings
     let layoutSummary: String
     @ObservedObject var status: RuntimeStatus
-    @StateObject private var updates = UpdateChecker()
     @State private var openAtLogin = SMAppService.mainApp.status == .enabled
     var body: some View {
         Form {
@@ -183,28 +187,6 @@ private struct GeneralPane: View {
                             openAtLogin = SMAppService.mainApp.status == .enabled
                         }
                     }
-                LabeledContent("เวอร์ชัน") {
-                    HStack(spacing: 10) {
-                        switch updates.state {
-                        case .checking:
-                            Text("\(updates.currentVersion) · กำลังตรวจ...").foregroundStyle(.secondary)
-                        case .upToDate:
-                            Text("\(updates.currentVersion) · ใหม่ล่าสุดแล้ว").foregroundStyle(.secondary)
-                        case .available(let version, let url):
-                            Text("\(updates.currentVersion) · มี \(version) ใหม่")
-                            if updates.canInstall {
-                                Button("อัปเดตเลย") { updates.installUpdate() }
-                            } else {
-                                Link("ดาวน์โหลด", destination: url)
-                            }
-                        case .failed(let reason):
-                            Text("\(updates.currentVersion) · \(reason)").foregroundStyle(.secondary)
-                        case .idle:
-                            Text(updates.currentVersion).foregroundStyle(.secondary)
-                        }
-                        Button("ตรวจหาอัปเดต") { updates.check() }
-                    }
-                }
                 LabeledContent("เลย์เอาต์", value: layoutSummary)
                 LabeledContent("ย้อนการแก้ล่าสุด", value: "⌃⌥Z")
                 LabeledContent("สลับคำล่าสุดเอง", value: "⌃⌥L")
@@ -214,7 +196,38 @@ private struct GeneralPane: View {
             }
         }
         .formStyle(.grouped)
-        .task { updates.check() }
+    }
+}
+
+/// Version and, only when there is one, the update. Sits under the sidebar so
+/// it is visible from every pane without taking a row in any of them.
+private struct VersionFooter: View {
+    @ObservedObject var updates: UpdateChecker
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Divider()
+            HStack {
+                Text("เวอร์ชัน \(updates.currentVersion)")
+                    .font(.callout).foregroundStyle(.secondary)
+                Spacer()
+                if case .checking = updates.state {
+                    ProgressView().controlSize(.small)
+                }
+            }
+            if case .available(let version, let url) = updates.state {
+                if updates.canInstall {
+                    Button("อัปเดตเป็น \(version)") { updates.installUpdate() }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                } else {
+                    Link("ดาวน์โหลด \(version)", destination: url)
+                        .font(.callout)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 10)
     }
 }
 

@@ -7,7 +7,7 @@
 #      (Apple Developer account > Certificates > Developer ID Application)
 #   2. notarytool credentials:
 #      xcrun notarytool store-credentials wmp-notary \
-#          --apple-id <your apple id> --team-id UN9QXDLUQ9 --password <app-specific password>
+#          --apple-id <apple id> --team-id <team id> --password <app-specific password>
 #
 # Then: ./package_dmg.sh
 set -euo pipefail
