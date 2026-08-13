@@ -21,6 +21,7 @@ rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cp "$BIN/wmp" "$BUNDLE/Contents/MacOS/wmp"
 cp -R "$BIN/wmp_WmpCore.bundle" "$BUNDLE/Contents/Resources/"
+cp Resources/AppIcon.icns "$BUNDLE/Contents/Resources/"
 
 cat > "$BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -30,6 +31,7 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
     <key>CFBundleName</key><string>wmp-ไทย</string>
     <key>CFBundleDisplayName</key><string>wmp-ไทย</string>
     <key>CFBundleExecutable</key><string>wmp</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleIdentifier</key><string>me.xaou.wmpthai</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
