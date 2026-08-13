@@ -157,6 +157,37 @@ enum SelfTest {
         }
         corrector.allowedTargets = [.thai, .latin]
 
+        // Converting a selection is pure character mapping, so it has to survive
+        // a round trip: flip it and flip it back and nothing may be lost.
+        print("\n— converting a selection —")
+        // Single-script selections flip whole: the user picked them on purpose.
+        let wholeFlips = [
+            "l;ylfu8iy[ ,u-hv8;k,",
+            "สวัสดีครับ มีข้อความ",
+            "hello world 123",
+        ]
+        for text in wholeFlips {
+            let target: Script = ThaiOrthography.containsThai(text) ? .latin : .thai
+            let converted = corrector.convertSelection(text, layouts: layouts)
+            let back = layouts.convertKeepingUnknown(text: converted, to: target == .thai ? .latin : .thai)
+            let ok = back == text && converted != text
+            ok ? (passed += 1) : (failed += 1)
+            print("  \(ok ? "ok " : "BAD ") \(text)  →  \(converted)")
+        }
+
+        // Mixed selections: only the words that are actually in the wrong layout.
+        let mixed: [(text: String, want: String)] = [
+            ("l;ylfu hello", "สวัสดี hello"),
+            ("ทดสอบ hello ผสมกัน 42", "ทดสอบ hello ผสมกัน 42"),
+            ("ผม ้ำสสน แล้ว", "ผม hello แล้ว"),
+        ]
+        for case_ in mixed {
+            let converted = corrector.convertSelection(case_.text, layouts: layouts)
+            let ok = converted == case_.want
+            ok ? (passed += 1) : (failed += 1)
+            print("  \(ok ? "ok " : "BAD ") \(case_.text)  →  \(converted)   want \(case_.want)")
+        }
+
         bulkFalsePositiveCheck(layouts: layouts, corrector: corrector)
 
         print("\n\(passed) passed, \(failed) failed")

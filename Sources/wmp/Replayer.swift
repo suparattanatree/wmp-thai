@@ -1,3 +1,4 @@
+import AppKit
 import Carbon
 import CoreGraphics
 import Foundation
@@ -80,6 +81,39 @@ final class Replayer {
     /// screen before touching it.
     func focusedText() -> String? { probe.focusedText() }
 
+    func selectedText() -> String? { probe.selectedText() }
+
+    @discardableResult
+    func replaceSelection(with text: String) -> Bool { probe.replaceSelection(with: text) }
+
+    /// Last resort for reading a selection: press ⌘C and look at the clipboard,
+    /// then put the clipboard back the way it was. Apps that expose nothing to
+    /// the Accessibility API still answer to this.
+    func copySelection() -> String? {
+        isReplaying = true
+        defer { isReplaying = false }
+
+        let pasteboard = NSPasteboard.general
+        let saved = pasteboard.string(forType: .string)
+        let before = pasteboard.changeCount
+
+        postKey(8, flags: .maskCommand)          // ⌘C
+        var copied: String?
+        for _ in 0..<40 {
+            usleep(5000)
+            if pasteboard.changeCount != before {
+                copied = pasteboard.string(forType: .string)
+                break
+            }
+        }
+
+        if let saved {
+            pasteboard.clearContents()
+            pasteboard.setString(saved, forType: .string)
+        }
+        return copied
+    }
+
     func type(_ text: String) {
         // One event per scalar, the same shape as real typing.
         for scalar in text.unicodeScalars {
@@ -87,10 +121,12 @@ final class Replayer {
         }
     }
 
-    private func postKey(_ keycode: CGKeyCode) {
+    private func postKey(_ keycode: CGKeyCode, flags: CGEventFlags = []) {
         guard let down = CGEvent(keyboardEventSource: source, virtualKey: keycode, keyDown: true),
               let up = CGEvent(keyboardEventSource: source, virtualKey: keycode, keyDown: false)
         else { return }
+        down.flags = flags
+        up.flags = flags
         stamp(down); stamp(up)
         down.post(tap: .cgSessionEventTap)
         usleep(interEventDelay)

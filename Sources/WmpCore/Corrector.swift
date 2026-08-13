@@ -215,8 +215,7 @@ public final class Corrector {
     }
 
     public func simulate(_ text: String) -> [Simulation] {
-        text.split(whereSeparator: \.isWhitespace).compactMap { piece in
-            let word = String(piece)
+        Corrector.words(in: text).compactMap { word in
             let script: Script = ThaiOrthography.containsThai(word) ? .thai : .latin
             guard let strokes = layouts.strokes(for: word, on: script) else { return nil }
 
@@ -242,6 +241,74 @@ public final class Corrector {
             return Simulation(word: word, keys: strokes.count, midWordAt: midWordAt,
                               midWord: midWord, atSpace: atSpace, outcome: outcome)
         }
+    }
+
+    /// Flips a selection.
+    ///
+    /// If it is all one script, the user picked it on purpose: flip the lot. If
+    /// it mixes Thai and Latin, flipping everything would break whichever half
+    /// was already right, so each word is judged on its own and only the ones
+    /// that read better the other way are touched. Whitespace is preserved as
+    /// typed.
+    public func convertSelection(_ text: String, layouts: LayoutPair) -> String {
+        // Judge word by word first. "l;ylfu hello" is all Latin characters, but
+        // only half of it is a mistake, so looking at which script the text is
+        // written in says nothing useful.
+        let perWord = flippingWrongWords(in: text)
+        if perWord != text { return perWord }
+
+        // Nothing was obviously wrong. If the selection mixes real Thai with
+        // real English, leave it: flipping it would break whichever half was
+        // right. If it is all one script, the user asked for it - flip the lot.
+        let hasThai = ThaiOrthography.containsThai(text)
+        let hasLatin = text.contains { $0.isLetter && $0.isASCII }
+        if hasThai, hasLatin { return text }
+        let target: Script = hasThai ? .latin : .thai
+        return layouts.convertKeepingUnknown(text: text, to: target)
+    }
+
+    private func flippingWrongWords(in text: String) -> String {
+        var out = ""
+        var run = ""
+        func flushRun() {
+            guard !run.isEmpty else { return }
+            out += simulate(run).first?.outcome ?? run
+            run = ""
+        }
+        for scalar in text.unicodeScalars {
+            if Corrector.isWhitespace(scalar) {
+                flushRun()
+                out.unicodeScalars.append(scalar)
+            } else {
+                run.unicodeScalars.append(scalar)
+            }
+        }
+        flushRun()
+        return out
+    }
+
+    static func isWhitespace(_ scalar: Unicode.Scalar) -> Bool {
+        CharacterSet.whitespacesAndNewlines.contains(scalar)
+    }
+
+    /// Splits on scalars, not Characters.
+    ///
+    /// A Thai tone mark that opens a word attaches to the space before it: Swift
+    /// reads " ้ำสสน" as a cluster of space+ ้+ ำ followed by "สสน", so splitting
+    /// by Character quietly eats the first two marks of exactly the words this
+    /// tool exists to fix.
+    static func words(in text: String) -> [String] {
+        var words: [String] = []
+        var current = ""
+        for scalar in text.unicodeScalars {
+            if isWhitespace(scalar) {
+                if !current.isEmpty { words.append(current); current = "" }
+            } else {
+                current.unicodeScalars.append(scalar)
+            }
+        }
+        if !current.isEmpty { words.append(current) }
+        return words
     }
 
     /// Manual conversion (hotkey): flip the text regardless of scores.

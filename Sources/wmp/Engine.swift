@@ -195,7 +195,7 @@ final class Engine {
         guard flags.contains(wanted), !flags.contains(.maskCommand) else { return }
         switch keycode {
         case 6: revertLastFix()
-        case 37: convertLastWord()
+        case 37: convertSelection()
         default: break
         }
     }
@@ -260,6 +260,51 @@ final class Engine {
                 let back: Script = fix.correction.targetScript == .thai ? .latin : .thai
                 self.layouts.selectInputSource(back)
             }
+        }
+    }
+
+    /// ⌃⌥L on a selection: flip whatever is highlighted to the other layout.
+    ///
+    /// This is the one that works on text somebody else typed, or on a sentence
+    /// noticed three lines later - no buffer needed, so it has no memory of how
+    /// the text got there.
+    func convertSelection(fromMenu: Bool = false) {
+        if fromMenu, let bundleID = lastExternalBundleID,
+           let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
+            app.activate()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                self?.convertSelection()
+            }
+            return
+        }
+
+        // The Accessibility API first, the clipboard only if the app hides its
+        // selection from it.
+        let selection = replayer.selectedText() ?? replayer.copySelection()
+        guard let selection, !selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            convertLastWord()
+            return
+        }
+
+        let target: Script = ThaiOrthography.containsThai(selection) ? .latin : .thai
+        let converted = corrector.convertSelection(selection, layouts: layouts)
+        guard converted != selection else { return }
+
+        buffer.reset()
+        lastFix = nil
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            // Setting the selection outright is cleaner where it works; typing
+            // over it is what every other app understands.
+            if !self.replayer.replaceSelection(with: converted) {
+                self.replayer.type(converted)
+            }
+            if self.settings.switchInputSource {
+                self.layouts.selectInputSource(target)
+            }
+            self.onCorrection?(Correction(original: selection, replacement: converted,
+                                          targetScript: target, originalScore: 0, replacementScore: 1),
+                               false)
         }
     }
 

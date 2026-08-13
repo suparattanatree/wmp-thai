@@ -171,7 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         add(menu, "Switch mid-word", #selector(toggleLiveSwitch), on: settings.liveSwitch)
         menu.addItem(.separator())
 
-        let convert = NSMenuItem(title: "Convert last word  ⌃⌥L", action: #selector(convertLastWord), keyEquivalent: "")
+        let convert = NSMenuItem(title: "Convert selection  ⌃⌥L", action: #selector(convertLastWord), keyEquivalent: "")
         convert.target = self
         menu.addItem(convert)
         let revert = NSMenuItem(title: "Undo last fix  ⌃⌥Z", action: #selector(revertLastFix), keyEquivalent: "")
@@ -222,7 +222,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func toggleEnabled() { settings.enabled.toggle() }
     @objc private func toggleAutoFix() { settings.autoFix.toggle() }
     @objc private func toggleLiveSwitch() { settings.liveSwitch.toggle() }
-    @objc private func convertLastWord() { engine?.convertLastWord() }
+    @objc private func convertLastWord() { engine?.convertSelection(fromMenu: true) }
     @objc private func revertLastFix() { engine?.revertLastFix(fromMenu: true) }
     @objc private func openSettings() { settingsWindow?.show() }
 

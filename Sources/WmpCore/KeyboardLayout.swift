@@ -124,6 +124,25 @@ public final class LayoutPair {
         return out
     }
 
+    /// Character-level conversion that keeps whatever it cannot map.
+    ///
+    /// Used on a selection, where punctuation, numbers and stray characters are
+    /// normal and refusing the whole thing over one of them would be useless.
+    public func convertKeepingUnknown(text: String, to target: Script) -> String {
+        let from = target == .thai ? latinReverse : thaiReverse
+        let to = target == .thai ? thai : latin
+        var out = ""
+        for scalar in text.unicodeScalars {
+            let key = String(scalar)
+            if let (code, shift) = from[key], let mapped = to.character(keycode: code, shift: shift) {
+                out += mapped
+            } else {
+                out += key
+            }
+        }
+        return out
+    }
+
     /// Character-level conversion for text we did not witness (manual mode).
     public func convert(text: String, to target: Script) -> String? {
         let from = target == .thai ? latinReverse : thaiReverse
