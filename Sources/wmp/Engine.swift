@@ -14,10 +14,16 @@ final class Engine {
     private var buffer = TypingBuffer()
     /// The word just finished, kept so the manual hotkey can still reach it.
     private var lastWord: (buffer: TypingBuffer, trailing: String)?
-    private var lastFix: (correction: Correction, trailing: String)?
+    /// Kept with the app it happened in, so an undo can tell whether it is still
+    /// looking at the same text.
+    private var lastFix: (correction: Correction, trailing: String, bundleID: String?)?
     /// Cached instead of asked per keystroke: NSWorkspace lookups are not free
     /// and the answer only changes when the front app does.
     private var frontmostBundleID: String?
+    /// The last app that was not this one. Undo needs it: opening our own menu
+    /// makes us frontmost, and the text to fix lives in whatever was in front
+    /// before that.
+    private var lastExternalBundleID: String?
     /// One mid-word switch per word: after that, trust what is being typed.
     private var switchedThisWord = false
     /// Fires when typing pauses: the third moment a fix can happen, next to
@@ -31,6 +37,7 @@ final class Engine {
         self.corrector = corrector
         self.settings = settings
         frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        lastExternalBundleID = frontmostBundleID
     }
 
     // MARK: - Event entry points
@@ -86,16 +93,20 @@ final class Engine {
         buffer.reset()
         switchedThisWord = false
         lastWord = nil
-        lastFix = nil
+        // lastFix deliberately survives: reaching the menu item that undoes it
+        // takes a click and an app switch, and clearing it here made that item
+        // impossible to use. revertLastFix checks the text is still there.
     }
 
     func handleAppSwitch() {
         frontmostBundleID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        if frontmostBundleID != Bundle.main.bundleIdentifier {
+            lastExternalBundleID = frontmostBundleID
+        }
         cancelIdleFix()
         buffer.reset()
         switchedThisWord = false
         lastWord = nil
-        lastFix = nil
     }
 
     // MARK: - Decisions
@@ -164,12 +175,19 @@ final class Engine {
             if self.settings.switchInputSource {
                 self.layouts.selectInputSource(snapshot.targetScript)
             }
-            self.lastFix = (snapshot, trailing)
+            self.lastFix = (snapshot, trailing, self.lastExternalBundleID)
             self.onCorrection?(snapshot, midWord)
         }
     }
 
     // MARK: - Hotkeys
+
+    /// Undoing says the original was a real word we did not know. Remember it,
+    /// so the same "correction" does not come back tomorrow.
+    private func learn(_ word: String) {
+        WordListBuilder.addUserWord(word)
+        NotificationCenter.default.post(name: .wmpWordListsRebuilt, object: nil)
+    }
 
     /// ⌃⌥Z reverts the last automatic fix, ⌃⌥L converts the last word by hand.
     private func handleHotkey(keycode: UInt16, flags: CGEventFlags) {
@@ -182,18 +200,64 @@ final class Engine {
         }
     }
 
-    func revertLastFix() {
-        guard let (correction, trailing) = lastFix else { return }
+    /// `fromMenu` means our own menu is what triggered this: focus has to go back
+    /// to the app being typed in before any keystroke is posted, or the undo
+    /// lands on our menu instead of the text.
+    func revertLastFix(fromMenu: Bool = false) {
+        // A word that was fixed mid-way and typed on since: undo the whole word,
+        // not just the fragment that triggered the fix. The buffer holds the key
+        // presses, so rendering them in the other script gives what the user
+        // meant to see.
+        if switchedThisWord, !buffer.isEmpty, let script = buffer.script {
+            let back: Script = script == .thai ? .latin : .thai
+            let original = layouts.render(buffer.strokes, as: back)
+            let current = buffer.typed
+            guard !original.isEmpty else { return }
+            learn(current)
+            buffer.relabel(layouts.renderPieces(buffer.strokes, as: back))
+            lastFix = nil
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.replayer.replace(current, with: original, trailing: "")
+                if self.settings.switchInputSource { self.layouts.selectInputSource(back) }
+            }
+            return
+        }
+
+        guard let fix = lastFix else { return }
+        if fromMenu {
+            if let bundleID = fix.bundleID,
+               let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {
+                app.activate()
+            }
+            // Give the app a moment to take focus back before typing into it.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                self?.performRevert(fix)
+            }
+            lastFix = nil
+            return
+        }
+        // The fix may be old by now: the menu bar itself takes a click and an app
+        // switch to reach. Rather than forgetting the fix on every click, check
+        // that the text it produced is still sitting where it was left.
+        let typed = fix.correction.replacement + fix.trailing
+        if let onScreen = replayer.focusedText() {
+            guard onScreen.hasSuffix(typed) else { return }
+        } else {
+            guard fix.bundleID == lastExternalBundleID else { return }
+        }
+
         lastFix = nil
-        // Undoing a fix says the original was a real word we did not know.
-        // Remember it, so the same word is not "corrected" again tomorrow.
-        WordListBuilder.addUserWord(correction.original)
-        NotificationCenter.default.post(name: .wmpWordListsRebuilt, object: nil)
+        performRevert(fix)
+    }
+
+    private func performRevert(_ fix: (correction: Correction, trailing: String, bundleID: String?)) {
+        learn(fix.correction.original)
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.replayer.replace(correction.replacement, with: correction.original, trailing: trailing)
+            self.replayer.replace(fix.correction.replacement, with: fix.correction.original, trailing: fix.trailing)
             if self.settings.switchInputSource {
-                let back: Script = correction.targetScript == .thai ? .latin : .thai
+                let back: Script = fix.correction.targetScript == .thai ? .latin : .thai
                 self.layouts.selectInputSource(back)
             }
         }

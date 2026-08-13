@@ -63,6 +63,10 @@ final class Replayer {
         return nil
     }
 
+    /// The text of the focused field, for callers that need to check what is on
+    /// screen before touching it.
+    func focusedText() -> String? { probe.focusedText() }
+
     func type(_ text: String) {
         // One event per scalar, the same shape as real typing.
         for scalar in text.unicodeScalars {

@@ -223,7 +223,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc private func toggleAutoFix() { settings.autoFix.toggle() }
     @objc private func toggleLiveSwitch() { settings.liveSwitch.toggle() }
     @objc private func convertLastWord() { engine?.convertLastWord() }
-    @objc private func revertLastFix() { engine?.revertLastFix() }
+    @objc private func revertLastFix() { engine?.revertLastFix(fromMenu: true) }
     @objc private func openSettings() { settingsWindow?.show() }
 
     /// Back to a menu bar only app once the window is gone, so it stays out of
