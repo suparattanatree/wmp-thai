@@ -48,7 +48,7 @@ struct SettingsView: View {
             case .general: "ทั่วไป"
             case .sensitivity: "ความไว"
             case .words: "คลังคำ"
-            case .apps: "ยกเว้นแอป"
+            case .apps: "ยกเว้น"
             case .tryIt: "ลองดู"
             }
         }
@@ -144,9 +144,7 @@ private struct GeneralPane: View {
                         .foregroundStyle(status.state.isLive ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
                 }
                 Toggle("เปิดใช้งาน", isOn: $settings.enabled)
-                Toggle(isOn: $settings.autoFix) {
-                    caption("แก้ให้อัตโนมัติ", "ปิดไว้ = ตรวจจับและบันทึกไว้เฉย ๆ ไม่แตะข้อความ")
-                }
+                Toggle("แก้ให้อัตโนมัติ", isOn: $settings.autoFix)
             }
 
             Section("ทิศทางที่แก้") {
@@ -157,17 +155,12 @@ private struct GeneralPane: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                Text(settings.direction.detail)
-                    .font(.callout).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             Section("จังหวะที่แก้") {
-                Toggle(isOn: $settings.idleFix) {
-                    caption("แก้ทันทีที่หยุดพิมพ์", "ไม่ต้องรอเคาะ space")
-                }
+                Toggle("แก้ทันทีที่หยุดพิมพ์", isOn: $settings.idleFix)
                 if settings.idleFix {
-                    LabeledContent("หยุดนานแค่ไหนถึงถือว่าหยุด") {
+                    LabeledContent("หยุดนานเท่าไหร่") {
                         HStack(spacing: 12) {
                             Slider(value: Binding(
                                 get: { Double(settings.idleDelayMilliseconds) },
@@ -179,12 +172,8 @@ private struct GeneralPane: View {
                         }
                     }
                 }
-                Toggle(isOn: $settings.liveSwitch) {
-                    caption("สลับกลางคำ", "ไม่ต้องรอเคาะ space ปกติจับได้ภายใน 3-5 ตัว")
-                }
-                Toggle(isOn: $settings.switchInputSource) {
-                    caption("สลับแป้นให้หลังแก้", "คำถัดไปจะได้พิมพ์ถูกภาษาต่อเลย")
-                }
+                Toggle("สลับกลางคำ ไม่ต้องรอจบคำ", isOn: $settings.liveSwitch)
+                Toggle("สลับแป้นให้หลังแก้", isOn: $settings.switchInputSource)
             }
 
             Section {
@@ -252,8 +241,7 @@ private struct SensitivityPane: View {
 
             Section {
                 Toggle(isOn: $settings.guessWhenUnreadable) {
-                    caption("เดาให้ถ้าอ่านไม่ออก",
-                            "คำที่อ่านไม่ออกในภาษาที่กำลังพิมพ์ ให้ถือว่าเป็นอีกภาษาได้เลย ไม่ต้องรอให้ตรงคลังคำ ช่วยพวกชื่อเฉพาะและคำแสลง")
+                    caption("เดาให้ถ้าอ่านไม่ออก", "ช่วยพวกชื่อเฉพาะและคำแสลงที่ไม่มีในคลังคำ")
                 }
             }
 
@@ -303,9 +291,51 @@ private struct SensitivityPane: View {
 private struct AppsPane: View {
     @ObservedObject var settings: Settings
     @State private var selection: String?
+    @State private var newHost = ""
+    @State private var hostSelection: String?
 
     var body: some View {
         VStack(spacing: 0) {
+            Form {
+                Section {
+                    Toggle(isOn: $settings.skipSensitiveFields) {
+                        caption("ข้ามช่องรหัสผ่าน อีเมล ชื่อผู้ใช้", "ดูจากชนิดและชื่อของช่อง ใช้ได้ทั้งเว็บและแอป")
+                    }
+                }
+            }
+            .formStyle(.grouped)
+            .frame(height: 96)
+
+            Divider()
+            HStack(spacing: 8) {
+                TextField("ยกเว้นเว็บ เช่น bank.co.th", text: $newHost)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { addHost() }
+                Button("เพิ่ม") { addHost() }
+                    .disabled(newHost.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button {
+                    guard let hostSelection else { return }
+                    settings.excludedHosts.removeAll { $0 == hostSelection }
+                    self.hostSelection = nil
+                } label: {
+                    Image(systemName: "minus").frame(width: 16, height: 16)
+                }
+                .disabled(hostSelection == nil)
+            }
+            .buttonStyle(.glass)
+            .padding(12)
+
+            if !settings.excludedHosts.isEmpty {
+                List(selection: $hostSelection) {
+                    ForEach(settings.excludedHosts, id: \.self) { host in
+                        Label(host, systemImage: "globe").tag(host)
+                    }
+                }
+                .listStyle(.inset)
+                .frame(height: 90)
+                Divider()
+            }
+
             if settings.excludedBundleIDs.isEmpty {
                 ContentUnavailableView(
                     "ยังไม่ได้ยกเว้นแอปไหน",
@@ -323,18 +353,21 @@ private struct AppsPane: View {
 
             Divider()
             HStack(spacing: 8) {
-                Button { addApp() } label: { Label("เพิ่มแอป", systemImage: "plus") }
+                Button { addApp() } label: {
+                    Image(systemName: "plus").frame(width: 16, height: 16)
+                }
+                .help("เพิ่มแอป")
                 Button {
                     guard let selection else { return }
                     settings.excludedBundleIDs.removeAll { $0 == selection }
                     self.selection = nil
                 } label: {
-                    Label("เอาออก", systemImage: "minus")
+                    Image(systemName: "minus").frame(width: 16, height: 16)
                 }
+                .help("เอาแอปที่เลือกออก")
                 .disabled(selection == nil)
                 Spacer()
             }
-            .labelStyle(.iconOnly)
             .buttonStyle(.glass)
             .padding(12)
         }
@@ -358,6 +391,16 @@ private struct AppsPane: View {
             Spacer()
         }
         .padding(.vertical, 3)
+    }
+
+    private func addHost() {
+        // "google.com" should cover mail.google.com too, so store the bare host.
+        var host = newHost.trimmingCharacters(in: .whitespaces).lowercased()
+        if let url = URL(string: host), let parsed = url.host { host = parsed }
+        host = host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+        guard !host.isEmpty, !settings.excludedHosts.contains(host) else { return }
+        settings.excludedHosts.append(host)
+        newHost = ""
     }
 
     private func addApp() {
@@ -390,7 +433,7 @@ private struct TryItPane: View {
                     .lineLimit(1...3)
                     .padding(12)
                     .background(.quaternary.opacity(0.4), in: .rect(cornerRadius: 12))
-                Text("ดูว่าเกณฑ์ตอนนี้จะทำอะไรกับแต่ละคำ")
+                Text("ดูว่าตอนนี้จะทำอะไรกับแต่ละคำ")
                     .font(.callout).foregroundStyle(.secondary)
             }
 
@@ -503,18 +546,14 @@ private struct WordsPane: View {
                         }
                     }
                     Toggle(isOn: $settings.useSystemDictionary) {
-                        caption("ใช้ดิกชันนารีไทยของ macOS ด้วย",
-                                "ได้คำเพิ่มอีกราว 36,000 คำ แต่ต้องแกะรูปแบบไฟล์ของ Apple ซึ่งเป็นเนื้อหาที่เขาซื้อสิทธิ์มา ปิดไว้ก็ใช้ได้ปกติ")
+                        caption("ใช้ดิกชันนารีไทยของ macOS", "+36,000 คำ แต่ต้องแกะไฟล์ลิขสิทธิ์ของ Apple")
                     }
                     .onChange(of: settings.useSystemDictionary) { _, _ in rebuild() }
                     LabeledContent("ที่มากับแอป", value: "\(curatedCount) คำ")
                     LabeledContent("ที่คุณเพิ่มเอง", value: "\(userWords.count) คำ")
                 } footer: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("คำที่คุณกด ⌃⌥Z ย้อนการแก้ จะถูกจำไว้ตรงนี้ให้เอง และเก็บลงไฟล์ในเครื่อง")
-                        Text("นอกจากคำเหล่านี้ แอปไม่บันทึกสิ่งที่คุณพิมพ์ลงดิสก์ และไม่ส่งอะไรออกเน็ตเลย")
-                    }
-                    .font(.callout).foregroundStyle(.secondary)
+                    Text("คำที่กด ⌃⌥Z ย้อน จะถูกจำไว้ให้เอง")
+                        .font(.callout).foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)
@@ -526,7 +565,7 @@ private struct WordsPane: View {
                 ContentUnavailableView(
                     "ยังไม่มีคำของคุณ",
                     systemImage: "text.book.closed",
-                    description: Text("เพิ่มคำที่ไม่อยากให้มันแก้ หรือคำที่อยากให้มันรู้จัก")
+                    description: Text("เพิ่มคำที่ไม่อยากให้แก้ หรือคำที่อยากให้รู้จัก")
                 )
             } else {
                 List(selection: $selection) {
@@ -544,9 +583,11 @@ private struct WordsPane: View {
                     .onSubmit { add() }
                 Button("เพิ่ม") { add() }
                     .disabled(newWord.trimmingCharacters(in: .whitespaces).isEmpty)
-                Button { remove() } label: { Label("เอาออก", systemImage: "minus") }
-                    .labelStyle(.iconOnly)
-                    .disabled(selection == nil)
+                Button { remove() } label: {
+                    Image(systemName: "minus").frame(width: 16, height: 16)
+                }
+                .help("เอาคำที่เลือกออก")
+                .disabled(selection == nil)
                 Button("ล้างทั้งหมด") {
                     WordListBuilder.save(userWords: [])
                     refresh()

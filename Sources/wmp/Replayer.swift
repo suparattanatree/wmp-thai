@@ -83,6 +83,8 @@ final class Replayer {
 
     func selectedText() -> String? { probe.selectedText() }
 
+    func fieldContext() -> FieldContext { probe.fieldContext() }
+
     @discardableResult
     func replaceSelection(with text: String) -> Bool { probe.replaceSelection(with: text) }
 

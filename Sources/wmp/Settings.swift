@@ -20,6 +20,8 @@ final class Settings: ObservableObject {
         static let idleFix = "idleFix"
         static let idleDelay = "idleDelayMilliseconds"
         static let excluded = "excludedBundleIDs"
+        static let excludedHosts = "excludedHosts"
+        static let skipSensitiveFields = "skipSensitiveFields"
         static let minimumReplacementScore = "minimumReplacementScore"
         static let maximumOriginalScore = "maximumOriginalScore"
         static let minimumGap = "minimumGap"
@@ -46,6 +48,10 @@ final class Settings: ObservableObject {
     @Published var idleDelayMilliseconds: Int { didSet { defaults.set(idleDelayMilliseconds, forKey: Key.idleDelay) } }
     @Published var direction: Direction { didSet { defaults.set(direction.rawValue, forKey: Key.direction) } }
     @Published var excludedBundleIDs: [String] { didSet { defaults.set(excludedBundleIDs, forKey: Key.excluded) } }
+    /// Websites to stay out of, matched on host.
+    @Published var excludedHosts: [String] { didSet { defaults.set(excludedHosts, forKey: Key.excludedHosts) } }
+    /// Leave login and payment boxes alone, wherever they are.
+    @Published var skipSensitiveFields: Bool { didSet { defaults.set(skipSensitiveFields, forKey: Key.skipSensitiveFields) } }
 
     @Published var minimumReplacementScore: Double { didSet { defaults.set(minimumReplacementScore, forKey: Key.minimumReplacementScore) } }
     @Published var maximumOriginalScore: Double { didSet { defaults.set(maximumOriginalScore, forKey: Key.maximumOriginalScore) } }
@@ -67,6 +73,8 @@ final class Settings: ObservableObject {
             Key.idleFix: true,
             Key.idleDelay: 400,
             Key.excluded: ["com.apple.keychainaccess", "com.1password.1password", "com.agilebits.onepassword7"],
+            Key.excludedHosts: [String](),
+            Key.skipSensitiveFields: true,
             Key.minimumReplacementScore: stock.minimumReplacementScore,
             Key.maximumOriginalScore: stock.maximumOriginalScore,
             Key.minimumGap: stock.minimumGap,
@@ -84,6 +92,8 @@ final class Settings: ObservableObject {
         idleDelayMilliseconds = defaults.integer(forKey: Key.idleDelay)
         direction = Direction(rawValue: defaults.string(forKey: Key.direction) ?? "") ?? .both
         excludedBundleIDs = defaults.stringArray(forKey: Key.excluded) ?? []
+        excludedHosts = defaults.stringArray(forKey: Key.excludedHosts) ?? []
+        skipSensitiveFields = defaults.bool(forKey: Key.skipSensitiveFields)
         minimumReplacementScore = defaults.double(forKey: Key.minimumReplacementScore)
         maximumOriginalScore = defaults.double(forKey: Key.maximumOriginalScore)
         minimumGap = defaults.double(forKey: Key.minimumGap)
@@ -125,6 +135,17 @@ final class Settings: ObservableObject {
     func isExcluded(_ bundleID: String?) -> Bool {
         guard let bundleID else { return false }
         return excludedBundleIDs.contains(bundleID)
+    }
+
+    /// Matches the host itself and anything under it, so "google.com" covers
+    /// "mail.google.com".
+    func isExcluded(host: String?) -> Bool {
+        guard let host = host?.lowercased() else { return false }
+        return excludedHosts.contains { entry in
+            let pattern = entry.lowercased().trimmingCharacters(in: .whitespaces)
+            guard !pattern.isEmpty else { return false }
+            return host == pattern || host.hasSuffix("." + pattern)
+        }
     }
 
     var thresholds: CorrectorThresholds {

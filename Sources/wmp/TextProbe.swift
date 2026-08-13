@@ -29,6 +29,9 @@ struct TextProbe {
         return AXUIElementSetAttributeValue(field, kAXSelectedTextAttribute as CFString, text as CFTypeRef) == .success
     }
 
+    /// Same lookup, reachable from the context extension.
+    func focusedElementForContext() -> AXUIElement? { focusedElement() }
+
     private func focusedElement() -> AXUIElement? {
         var focused: CFTypeRef?
         guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focused) == .success,

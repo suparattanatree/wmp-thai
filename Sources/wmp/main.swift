@@ -21,6 +21,11 @@ if CommandLine.arguments.contains("--sweep") {
     exit(0)
 }
 
+if CommandLine.arguments.contains("--probe") {
+    ProbeDebug.run()
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--selftest") {
     SelfTest.run()
     exit(0)

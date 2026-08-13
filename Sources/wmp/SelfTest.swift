@@ -367,3 +367,21 @@ enum WordListSweep {
         print("\nวัดกับคำไทย \(sample.count) คำ ที่คนพิมพ์บ่อยที่สุด")
     }
 }
+
+/// `--probe` prints what the tool can see about the field that has focus, after
+/// a few seconds' delay so you can click into the field you want to inspect.
+/// Used to check the credential and website rules against real pages.
+enum ProbeDebug {
+    static func run() {
+        print("คลิกในช่องที่อยากตรวจ แล้วรอ 5 วินาที...")
+        Thread.sleep(forTimeInterval: 5)
+        let probe = TextProbe()
+        let context = probe.fieldContext()
+        print("subrole:   \(context.subrole ?? "-")")
+        print("labels:    \(context.labels.isEmpty ? "-" : context.labels.joined(separator: " | "))")
+        print("url:       \(context.url?.absoluteString ?? "-")")
+        print("host:      \(context.host ?? "-")")
+        print("sensitive: \(context.looksSensitive)")
+        print("text:      \(probe.focusedText().map { String($0.prefix(40)) } ?? "-")")
+    }
+}

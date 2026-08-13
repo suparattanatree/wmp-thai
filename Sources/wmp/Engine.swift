@@ -29,6 +29,10 @@ final class Engine {
     /// Fires when typing pauses: the third moment a fix can happen, next to
     /// mid-word and the space bar.
     private var idleTimer: Timer?
+    /// Decided once per word: asking the Accessibility API what kind of field
+    /// this is costs a cross-process call, and the answer cannot change while a
+    /// word is being typed into it.
+    private var skippingThisField = false
 
     var onCorrection: ((Correction, _ midWord: Bool) -> Void)?
 
@@ -75,6 +79,9 @@ final class Engine {
             break
         }
 
+        if buffer.isEmpty { skippingThisField = shouldSkipCurrentField() }
+        guard !skippingThisField else { return }
+
         let character = unicodeString(from: event)
         switch role(of: character) {
         case .wordCharacter(let text):
@@ -107,6 +114,14 @@ final class Engine {
         buffer.reset()
         switchedThisWord = false
         lastWord = nil
+    }
+
+    /// Stay out of login boxes and excluded sites.
+    private func shouldSkipCurrentField() -> Bool {
+        guard settings.skipSensitiveFields || !settings.excludedHosts.isEmpty else { return false }
+        let context = replayer.fieldContext()
+        if settings.skipSensitiveFields, context.looksSensitive { return true }
+        return settings.isExcluded(host: context.host)
     }
 
     // MARK: - Decisions
