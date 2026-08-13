@@ -1,0 +1,105 @@
+import Carbon
+import CoreGraphics
+import Foundation
+
+/// Rewrites what was just typed: backspace over it, type the replacement.
+///
+/// Every event we post carries `magic` in its source-user-data field so the tap
+/// can tell our own keystrokes from the user's and not chase its own tail.
+final class Replayer {
+    static let magic: Int64 = 0x4B45_5946_4958   // "KEYFIX"
+
+    private let source = CGEventSource(stateID: .privateState)
+    private let probe = TextProbe()
+    private let deleteKeycode: CGKeyCode = 51
+    /// Apps need a beat between synthetic events or they drop some.
+    private let interEventDelay: useconds_t = 900
+
+    private(set) var isReplaying = false
+
+    func replace(_ original: String, with replacement: String, trailing: String) {
+        isReplaying = true
+        defer { isReplaying = false }
+
+        // How much one backspace removes depends on the app: native Cocoa fields
+        // delete a single Thai mark, Chromium and Electron delete the whole
+        // cluster. So delete against the text itself rather than against a count,
+        // and re-type anything an over-eager backspace took with it.
+        let wanted = (original + trailing).unicodeScalars.count
+        var restore = ""
+
+        if let before = probe.focusedText() {
+            let target = before.unicodeScalars.count - wanted
+            var attempts = 0
+            var current = before
+            while current.unicodeScalars.count > target, attempts < wanted + 4 {
+                postKey(deleteKeycode)
+                attempts += 1
+                guard let now = waitForChange(from: current) else { break }
+                current = now
+            }
+            let overshoot = target - current.unicodeScalars.count
+            if overshoot > 0 {
+                restore = String(String.UnicodeScalarView(before.unicodeScalars.dropLast(wanted).suffix(overshoot)))
+            }
+        } else {
+            // No readable field (terminals, secure input): fall back to counting
+            // one delete per key press, which is what native fields do.
+            for _ in 0..<wanted { postKey(deleteKeycode) }
+        }
+
+        type(restore + replacement + trailing)
+    }
+
+    /// The app handles our delete asynchronously, so poll briefly for the text to
+    /// actually change. Nil means it never did: the field is not one we can read
+    /// our way through, so stop rather than hammer it with more deletes.
+    private func waitForChange(from previous: String) -> String? {
+        for _ in 0..<12 {
+            usleep(2500)
+            guard let now = probe.focusedText() else { return nil }
+            if now != previous { return now }
+        }
+        return nil
+    }
+
+    func type(_ text: String) {
+        // One event per scalar, the same shape as real typing.
+        for scalar in text.unicodeScalars {
+            postUnicode(String(scalar))
+        }
+    }
+
+    private func postKey(_ keycode: CGKeyCode) {
+        guard let down = CGEvent(keyboardEventSource: source, virtualKey: keycode, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: keycode, keyDown: false)
+        else { return }
+        stamp(down); stamp(up)
+        down.post(tap: .cgSessionEventTap)
+        usleep(interEventDelay)
+        up.post(tap: .cgSessionEventTap)
+        usleep(interEventDelay)
+    }
+
+    private func postUnicode(_ text: String) {
+        var utf16 = Array(text.utf16)
+        guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+              let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
+        else { return }
+        down.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
+        up.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
+        stamp(down); stamp(up)
+        down.post(tap: .cgSessionEventTap)
+        usleep(interEventDelay)
+        up.post(tap: .cgSessionEventTap)
+        usleep(interEventDelay)
+    }
+
+    private func stamp(_ event: CGEvent) {
+        event.setIntegerValueField(.eventSourceUserData, value: Replayer.magic)
+    }
+
+    static func isOurs(_ event: CGEvent) -> Bool {
+        event.getIntegerValueField(.eventSourceUserData) == magic
+    }
+}
