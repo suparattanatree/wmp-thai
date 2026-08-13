@@ -3,12 +3,12 @@
   <channel>
     <title>wmp-ไทย</title>
     <item>
-      <title>1.0.0</title>
-      <pubDate>Fri, 14 Aug 2026 05:16:17 +0700</pubDate>
-      <sparkle:version>1.0.0</sparkle:version>
-      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+      <title>1.0.1</title>
+      <pubDate>Fri, 14 Aug 2026 05:51:41 +0700</pubDate>
+      <sparkle:version>1.0.1</sparkle:version>
+      <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-      <enclosure url="https://github.com/suparattanatree/wmp-thai/releases/download/v1.0.0/wmp-thai-1.0.0.zip" type="application/octet-stream" sparkle:edSignature="5dqP165SLJRHCxy1IGeg0lSCa+gAjjCWmrWLBGOW4v57gwUt9wmpInpbMuKAapiCLb/+VKEr3Y/Nc0HzUt4UCA==" length="1901292" />
+      <enclosure url="https://github.com/suparattanatree/wmp-thai/releases/download/v1.0.1/wmp-thai-1.0.1.zip" type="application/octet-stream" sparkle:edSignature="a7tAJJoiM8c8pH25GCDKcj7g1HMRr9JeUvtHugCPz8q8w9nsTbVLu1wiPEU2GKwfnwAzlkKcQ/Hjs4RvzA8/CQ==" length="1902417" />
     </item>
   </channel>
 </rss>
