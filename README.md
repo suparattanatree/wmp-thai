@@ -1,50 +1,86 @@
 # wmp-ไทย
 
-เครื่องมือบน macOS ที่ตรวจจับว่าพิมพ์ผิดภาษาเพราะลืมสลับแป้น แล้วแก้ให้ทันทีระหว่างพิมพ์
+Fixes text typed with the wrong keyboard layout on macOS, between Thai and English.
 
-พิมพ์ `l;ylfu` ทั้งที่ตั้งใจพิมพ์ `สวัสดี` มันจะแก้ให้พร้อมสลับแป้นเป็นไทย ตัวที่เหลือพิมพ์ต่อได้เลย
+Type `l;ylfu` when you meant `สวัสดี` and it becomes `สวัสดี`, with the keyboard
+switched to Thai so the rest of the word lands correctly. Nothing to press.
 
-ต้องใช้ macOS 26 ขึ้นไป บน Apple Silicon
+Requires macOS 26 on Apple Silicon, plus a Thai and a Latin input source.
 
-## แก้ให้ 3 จังหวะ
+## What it does
 
-เปิดปิดแยกกันได้ทั้งสามอย่าง
+- Corrects mid-word, usually within 3 to 5 keystrokes
+- Corrects when you pause typing, with the delay adjustable from 150 to 2000 ms
+- Corrects on the space bar for anything the first two moments were unsure about
+- Switches the input source after a fix, so typing continues in the right language
+- Converts a selection on demand, including text you never typed yourself
+- Undoes a correction and remembers the word, so it is not corrected again
+- Runs in one direction only, if you only ever forget one of the two switches
 
-- กลางคำ พอมั่นใจก็สลับให้เลย ปกติจับได้ภายใน 3 ถึง 5 ตัว
-- พอหยุดพิมพ์ หยุดนิ่งเกินเวลาที่ตั้งไว้ ค่าเริ่มต้น 400 ms ปรับได้ตั้งแต่ 150 ถึง 2000 ms
-- ตอนเคาะ space รับคำที่สองจังหวะแรกยังไม่มั่นใจพอ
+Every one of these can be turned off.
 
-## ตัดสินยังไง
+## How it decides
 
-1. ดักคีย์บอร์ดด้วย CGEventTap แบบ listen-only มองอย่างเดียว ดักไม่ได้ หน่วงไม่ได้ ต่อให้แอปนี้ค้าง การพิมพ์ก็ไม่สะดุด
-2. เก็บคำที่กำลังพิมพ์เป็นปุ่มที่กด ไม่ใช่ตัวอักษรที่ได้ จึงแปลงกลับไปอีกเลย์เอาต์ได้ตรงโดยไม่ต้องเดา
-3. ให้คะแนนสองทาง คือที่พิมพ์ไปกับที่ควรจะเป็น แล้วแก้เมื่ออีกฝั่งชนะขาด ถ้าก้ำกึ่งคือไม่แตะ
+The keyboard tap is listen-only. It cannot swallow or delay a keystroke even if
+the app stalls, so typing stays exactly as responsive as it was.
 
-ตารางคีย์อ่านจากระบบจริงผ่าน TISInputSource และ UCKeyTranslate ไม่ได้ hardcode จึงใช้กับ Thai Pattachote หรือ ABC แบบอื่นได้
+Words are held as the keys that were pressed rather than the characters that
+appeared, so re-rendering them through the other layout is exact rather than a
+guess. The layout tables come from the system through `TISInputSource` and
+`UCKeyTranslate`, so any installed pair works, including Pattachote.
 
-เกณฑ์ฝั่งไทยใช้กฎการสะกด เช่นสระหรือวรรณยุกต์ลอยหน้าคำ วรรณยุกต์ซ้อน แล้วตามด้วยการตัดคำ ICU กับคลังคำ
-อังกฤษที่พิมพ์บนแป้นไทยมักผิดกฎตั้งแต่ตัวแรก เช่น hello ออกมาเป็น `้ำสสน` ที่ขึ้นต้นด้วยไม้โท
+Both readings are then scored, and a correction happens only when one wins
+clearly. Ambiguous pairs are left alone: typing `ok` on the Thai layout gives
+`นา`, a real Thai word, so nothing happens.
 
-เกณฑ์ฝั่งอังกฤษใช้ /usr/share/dict/words กับ NSSpellChecker และคลังคำที่คนพิมพ์จริงอีกชุด
-เพราะ dict/words มีคำอย่าง meso หรือ miim ที่ไม่มีใครพิมพ์ปนอยู่มาก
+Thai is judged on spelling rules first. English typed on the Thai layout usually
+breaks one within a character or two, since `hello` lands as `้ำสสน`, which opens
+with a tone mark that cannot start a word. Word lists and ICU segmentation
+follow. English is judged against the system dictionary, the spell checker, and a
+list of words people actually type, since a full dictionary contains plenty of
+words nobody ever types.
 
-มีกฎเพิ่มอีกข้อชื่อ เดาให้ถ้าอ่านไม่ออก ถ้าสิ่งที่พิมพ์ออกมาอ่านไม่ออกในภาษานั้นจริง
-คือไทยผิดกฎสะกด หรืออังกฤษไม่มีสระและมีพยัญชนะติดกันเกินสี่ตัว และอีกฝั่งอ่านออก ก็แก้ให้โดยไม่ต้องมีในคลังคำ
-ข้อนี้คือตัวที่ช่วยชื่อเฉพาะกับคำแสลง เช่น emma, github, kubernetes, จุงเบย
+A word in neither list can still be corrected when what was typed is unreadable
+in the language it landed in and the other reading is not. That is what catches
+names, brands and slang: `emma`, `github`, `kubernetes`, `จุงเบย`.
 
-คำสั้นกว่า 3 ตัวไม่แก้ ยาวเกิน 40 ตัวไม่แก้
+## Shortcuts
 
-## ปุ่มลัด
-
-| ปุ่ม | ทำอะไร |
+| Key | Action |
 |---|---|
-| ⌃⌥Z | ย้อนการแก้ล่าสุด และจำคำนั้นไว้ว่าอย่าแก้อีก |
-| ⌃⌥L | เลือกข้อความไว้แล้วกดเพื่อสลับภาษาทั้งก้อน ถ้าไม่ได้เลือกจะสลับคำล่าสุด |
+| ⌃⌥Z | Undo the last correction and remember the word |
+| ⌃⌥L | Convert the selection, or the last word if nothing is selected |
 
-การสลับข้อความที่เลือกจะอ่าน selection ผ่าน Accessibility API ถ้าแอปไหนไม่บอกก็ถอยไปใช้ ⌘C แล้วคืนคลิปบอร์ดให้เหมือนเดิม
-ถ้าเลือกมาทั้งย่อหน้าที่มีทั้งไทยและอังกฤษ มันจะตัดสินทีละคำแล้วสลับเฉพาะคำที่ผิดจริง
+A mixed selection is judged word by word, so the half that was already right
+survives.
 
-## ติดตั้ง
+## Where it stays out
+
+- Secure input fields, which it cannot read at all
+- Password fields on the web, recognised through the accessibility subrole
+- Fields labelled as email, username or password, in either language
+- Sites on the excluded list, matched on host including subdomains
+- Apps on the excluded list
+
+## What it stores
+
+- Nothing typed is written to disk, except words you undo a correction on
+- Correction history stays in memory and is lost when the app quits
+- Nothing leaves the machine, apart from a version check against GitHub
+
+## Word lists
+
+Built on first launch from what is already installed on the machine, in about
+half a minute, and kept in Application Support. A small curated list ships with
+the app for words the machine cannot know about, and anything you add yourself
+sits alongside both.
+
+Reading the system Thai dictionary is offered as an option and is off by
+default. It needs an undocumented format holding licensed content, and measuring
+says it barely helps: roughly 5,000 words is where accuracy stops improving, and
+the lists built from UI text already pass that.
+
+## Building
 
 ```bash
 ./build_app.sh
@@ -52,109 +88,32 @@ mv wmp-ไทย.app /Applications/
 open /Applications/wmp-ไทย.app
 ```
 
-เปิดสิทธิ์ Accessibility ให้ที่ System Settings ไปที่ Privacy & Security แล้วเลือก Accessibility
-แอปจะเริ่มทำงานเองทันทีที่ได้สิทธิ์ ไม่ต้องเปิดใหม่
+Then grant Accessibility access in System Settings, under Privacy & Security.
+The app starts working the moment permission is given, without a relaunch.
 
-build_app.sh เซ็นด้วยใบรับรองในเครื่องอัตโนมัติ เลือก Developer ID ก่อน ถ้าไม่มีจะใช้ Apple Development
-การเซ็นด้วยใบรับรองจริงทำให้แอปมีตัวตนคงที่ สิทธิ์ Accessibility จึงอยู่ข้ามการ build ใหม่
-ถ้าไม่มีใบรับรองเลยจะถอยไปเซ็นแบบ ad-hoc ซึ่งต้องกดให้สิทธิ์ใหม่ทุกครั้งที่ build
+`build_app.sh` signs with whatever certificate is on the machine. A real
+certificate keeps the app's identity stable, which is what lets macOS keep the
+Accessibility permission across rebuilds.
 
-## คลังคำ
-
-มีสามชั้น
-
-| ชั้น | มาจากไหน | อัปเดตยังไง |
-|---|---|---|
-| จากเครื่องนี้ | ข้อความ th.lproj และ en.lproj ของทุกแอปในเครื่อง | สร้างเองตอนเปิดครั้งแรก ราว 28 วินาที กดสร้างใหม่ได้ในหน้าคลังคำ |
-| ที่มากับแอป | Sources/WmpCore/Resources/curated_*.txt | แก้ไฟล์แล้วปล่อยเวอร์ชันใหม่ |
-| ที่ผู้ใช้เพิ่มเอง | หน้าคลังคำ หรือกด ⌃⌥Z ย้อนการแก้ | ผู้ใช้เพิ่มหรือลบเองได้ตลอด |
-
-ชั้นแรกเก็บที่ ~/Library/Application Support/wmp-thai/ ไม่ถูกแจกไปกับแอปเพราะสกัดจากข้อมูลของ Apple
-ชั้นที่สองเป็นของเราจึงแจกได้
-
-การอ่านดิกชันนารีไทยของ macOS เป็นตัวเลือกที่ปิดไว้ เพราะต้องแกะรูปแบบไฟล์ที่ Apple ไม่ได้เปิดสเปก
-และเนื้อหาข้างในเป็นของสำนักพิมพ์ที่ Apple ซื้อสิทธิ์มา เปิดเองได้ในหน้าคลังคำ ได้คำเพิ่มราว 36,000 คำ
-
-### คลังคำต้องใหญ่แค่ไหน
-
-วัดด้วย `swift run wmp --sweep` โดยตัดคลังคำไทยเหลือ N คำที่พบบ่อยที่สุด แล้ววัดกับคำไทย 3,300 คำที่คนพิมพ์บ่อย
-
-| ขนาดคลัง | ครอบคลุมข้อความ | จับคำผิดภาษาได้ | แก้คำถูกผิดพลาด |
-|---|---|---|---|
-| 0 | 0% | 53.7% | 0.24% |
-| 500 | 77.3% | 73.3% | 0.18% |
-| 1,000 | 88.1% | 79.8% | 0.18% |
-| 2,000 | 94.8% | 87.7% | 0.06% |
-| 5,000 | 98.9% | 99.4% | 0.00% |
-| 10,000 ขึ้นไป | 100% | 99.4% | 0.00% |
-
-จุดพออยู่ที่ราว 5,000 คำ หลังจากนั้นเพิ่มไปก็ไม่ได้อะไรเพิ่ม
-ที่ 0 คำยังจับได้ครึ่งหนึ่งเพราะกฎอ่านไม่ออกไม่ต้องใช้คลังคำ
-คลังใหญ่ช่วยอีกทางคือทำให้แก้คำที่ถูกอยู่แล้วผิดพลาดน้อยลง
-
-## ที่ที่มันจะไม่ยุ่งด้วย
-
-- ช่อง secure input ของระบบ อ่านไม่ได้อยู่แล้วโดยสิ้นเชิง
-- ช่องที่ Accessibility บอกว่าเป็น AXSecureTextField ซึ่งครอบคลุมช่องรหัสผ่านในเว็บ
-- ช่องที่ชื่อหรือ placeholder มีคำว่า password, username, email, รหัสผ่าน, ชื่อผู้ใช้, อีเมล
-- เว็บที่อยู่ในรายการยกเว้น ดูจาก URL ของหน้าต่างผ่าน AXDocument รวมซับโดเมนด้วย
-- แอปที่อยู่ในรายการยกเว้น
-
-## แอปนี้แตะข้อมูลอะไรบ้าง
-
-- ไม่ส่งอะไรออกเน็ต ยกเว้นการเช็คเวอร์ชันใหม่ที่ GitHub ซึ่งขอแค่เลขเวอร์ชัน
-- ไม่บันทึกสิ่งที่พิมพ์ลงดิสก์ สิ่งเดียวที่ลงดิสก์คือคำที่กด ⌃⌥Z ย้อนการแก้ ลบได้ในหน้าคลังคำ
-- ประวัติการแก้ 20 รายการล่าสุดอยู่ในหน่วยความจำอย่างเดียว
-- ไอคอนอยู่บนเมนูบาร์ตลอดเวลา ไม่มีโหมดซ่อน
-
-## ทดสอบ
+## Development
 
 ```bash
-swift run wmp --selftest             # ชุดทดสอบทั้งหมด
-swift run wmp --typo "สวัสดี github"  # จำลองพิมพ์ผิดแป้นแล้วดูผล
-swift run wmp --try "l;ylfu8iy["     # ดูผลจากข้อความที่พิมพ์ผิดมาแล้ว
-swift run wmp --score "ยฟหหไนพก"      # ดูคะแนนของข้อความเดียว
-swift run wmp --probe                # ดูว่ามันเห็นอะไรในช่องที่โฟกัสอยู่
-swift run wmp --preview              # เปิดเฉพาะหน้าต่างตั้งค่า ไม่แตะคีย์บอร์ด
-swift run wmp --sweep                # วัดว่าคลังคำต้องใหญ่แค่ไหน
+swift run wmp --selftest              # the full test suite
+swift run wmp --typo "สวัสดี github"   # simulate typing it on the wrong layout
+swift run wmp --try "l;ylfu8iy["      # verdicts for text already mistyped
+swift run wmp --probe                 # what it can see about the focused field
+swift run wmp --preview               # settings window only, no keyboard tap
+swift run wmp --sweep                 # measure how large the word list must be
 ```
 
-selftest มีทั้งการจำลองพิมพ์ผิดแป้นทีละปุ่ม และ bulk check ที่พิมพ์คำจริงหลายพันคำเพื่อวัดว่าแก้ผิดบ่อยแค่ไหน
+The test suite replays wrong-layout typing keystroke by keystroke, and types
+several thousand correctly spelled words to count how often the tool would have
+interfered. That number should stay at zero.
 
-## ข้อจำกัดที่รู้อยู่
+## License
 
-- แก้ทีละคำ ไม่ได้ย้อนแก้ทั้งประโยคที่พิมพ์ไปแล้ว
-- ⌃⌥Z ย้อนได้เฉพาะการแก้ครั้งล่าสุด
-- รองรับคู่ไทยกับอังกฤษเท่านั้น
-- คำแสลงหรือคำใหม่ที่ไม่มีในคลังคำอาจไม่ถูกแก้ ซึ่งปลอดภัยกว่าแก้มั่ว
+MIT. See [LICENSE](LICENSE).
 
-## โครงสร้าง
+## Support
 
-```
-Sources/WmpCore/    KeyboardLayout   ตารางคีย์จากระบบและการแปลงข้ามเลย์เอาต์
-                    ThaiOrthography  กฎการสะกดไทย
-                    LanguageScorer   ให้คะแนนไทยและอังกฤษ
-                    TypingBuffer     คำที่กำลังพิมพ์
-                    Corrector        ตัดสินว่าจะแก้ไหม
-                    WordListBuilder  สร้างคลังคำจากเครื่อง
-Sources/wmp/        EventTap, Engine, Replayer, TextProbe, FieldContext,
-                    Settings, SettingsWindow, UpdateChecker, SelfTest
-Sources/corpusgen/  สร้างคลังคำจากบรรทัดคำสั่ง
-Tools/make_icon     วาดไอคอนแอป
-```
-
-## ไอคอน
-
-วาดด้วยโค้ด แก้แล้วสร้างใหม่ได้ด้วย `./Tools/make_icon.sh`
-รูปทรงตามที่ macOS 26 กำหนด ตัวอักษรคือ A กับ ก ซึ่งเป็นคู่เดียวกับที่เมนู input source ใช้
-
-## แจกจ่าย
-
-App Store ไปไม่ได้ เพราะแอปบนสโตร์ต้องอยู่ใน sandbox ซึ่งปิดทั้งการดักคีย์บอร์ดทั้งระบบและการอ่านไฟล์จาก /System/Library
-
-ทางที่ไปได้คือเซ็นด้วย Developer ID แล้ว notarize จากนั้นแจกเป็น DMG ด้วย `./package_dmg.sh`
-หรือปล่อยผ่าน GitHub Releases ด้วย `./release.sh <version>`
-
-## สนับสนุน
-
-ถ้าเครื่องมือนี้มีประโยชน์ สนับสนุนได้ที่ https://ko-fi.com/memorist
+If this is useful to you: https://ko-fi.com/memorist
