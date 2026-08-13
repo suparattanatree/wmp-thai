@@ -18,9 +18,23 @@ public final class LanguageScorer {
     private let maximumPrefixLength = 8
 
     public init(thaiWordListURL: URL? = nil, commonEnglishURL: URL? = nil) {
-        loadThai(thaiWordListURL ?? Bundle.module.url(forResource: "th_words", withExtension: "txt"))
-        loadEnglish()
-        loadCommonEnglish(commonEnglishURL ?? Bundle.module.url(forResource: "en_words", withExtension: "txt"))
+        self.thaiWordListURL = thaiWordListURL ?? WordListBuilder.thaiListURL
+        self.commonEnglishURL = commonEnglishURL ?? WordListBuilder.englishListURL
+        reload()
+    }
+
+    private let thaiWordListURL: URL
+    private let commonEnglishURL: URL
+
+    /// Re-reads the lists from disk. Called after the first-launch build so the
+    /// running app picks them up without a restart.
+    public func reload() {
+        thaiWords = []
+        thaiPrefixes = []
+        commonEnglishWords = []
+        loadThai(thaiWordListURL)
+        if englishWords.isEmpty { loadEnglish() }
+        loadCommonEnglish(commonEnglishURL)
     }
 
     private func loadCommonEnglish(_ url: URL?) {

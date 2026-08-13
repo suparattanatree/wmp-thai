@@ -7,7 +7,6 @@ let package = Package(
     targets: [
         .target(
             name: "WmpCore",
-            resources: [.copy("Resources/th_words.txt"), .copy("Resources/en_words.txt")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(
@@ -15,6 +14,6 @@ let package = Package(
             dependencies: ["WmpCore"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
-        .executableTarget(name: "corpusgen", swiftSettings: [.swiftLanguageMode(.v5)]),
+        .executableTarget(name: "corpusgen", dependencies: ["WmpCore"], swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )

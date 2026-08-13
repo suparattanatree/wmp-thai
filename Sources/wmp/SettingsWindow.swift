@@ -133,6 +133,28 @@ private struct GeneralPane: View {
     @ObservedObject var status: RuntimeStatus
     @StateObject private var updates = UpdateChecker()
     @State private var openAtLogin = SMAppService.mainApp.status == .enabled
+    @State private var rebuilding = false
+    @State private var wordListCounts: (thai: Int, english: Int)?
+
+    private var wordListSummary: String {
+        if rebuilding { return "กำลังสร้าง..." }
+        if let counts = wordListCounts { return "ไทย \(counts.thai) · อังกฤษ \(counts.english) คำ" }
+        return WordListBuilder.isBuilt ? "สร้างจากเครื่องนี้แล้ว" : "ยังไม่ได้สร้าง"
+    }
+
+    /// Worth offering: installing a new dictionary or a new app adds vocabulary
+    /// the lists were built without.
+    private func rebuildWordLists() {
+        rebuilding = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let counts = try? WordListBuilder.build()
+            DispatchQueue.main.async {
+                wordListCounts = counts
+                rebuilding = false
+                NotificationCenter.default.post(name: .wmpWordListsRebuilt, object: nil)
+            }
+        }
+    }
 
     var body: some View {
         Form {
@@ -211,6 +233,13 @@ private struct GeneralPane: View {
                             Text(updates.currentVersion).foregroundStyle(.secondary)
                         }
                         Button("ตรวจหาอัปเดต") { updates.check() }
+                    }
+                }
+                LabeledContent("คลังคำ") {
+                    HStack(spacing: 10) {
+                        Text(wordListSummary).foregroundStyle(.secondary)
+                        Button("สร้างใหม่") { rebuildWordLists() }
+                            .disabled(rebuilding)
                     }
                 }
                 LabeledContent("เลย์เอาต์", value: layoutSummary)

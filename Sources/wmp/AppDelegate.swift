@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsWindow: SettingsWindowController?
     private var cancellables: Set<AnyCancellable> = []
     private var permissionTimer: Timer?
+    private var scorer: LanguageScorer?
     private var layoutSummary = "-"
     /// `--preview` opens just the settings window: no tap, no permission
     /// prompt, so the UI can be checked on its own.
@@ -29,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         layoutSummary = "\(layouts.latin.localizedName) ↔ \(layouts.thai.localizedName)"
 
         let scorer = LanguageScorer()
+        self.scorer = scorer
         let corrector = Corrector(layouts: layouts, scorer: scorer, thresholds: settings.thresholds)
         corrector.allowedTargets = settings.direction.targets
         corrector.guessWhenUnreadable = settings.guessWhenUnreadable
@@ -67,10 +69,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { [weak engine] _ in engine?.handleAppSwitch() }
 
+        NotificationCenter.default.addObserver(
+            forName: .wmpWordListsRebuilt, object: nil, queue: .main
+        ) { [weak self] _ in self?.scorer?.reload() }
+
+        // The word lists are built from this Mac rather than shipped, so the very
+        // first launch has to make them before anything can be judged.
+        guard WordListBuilder.isBuilt else {
+            status.state = .buildingWordLists
+            settingsWindow?.show()
+            buildWordLists()
+            return
+        }
+
         guard EventTap.hasAccessibilityPermission(prompt: true) else {
             status.state = .needsPermission
             waitForPermission()
             settingsWindow?.show()
+            return
+        }
+        startTap()
+    }
+
+    func buildWordLists() {
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            try? WordListBuilder.build()
+            DispatchQueue.main.async {
+                guard let self else { return }
+                self.scorer?.reload()
+                self.status.state = .previewOnly
+                self.startOrWaitForPermission()
+            }
+        }
+    }
+
+    private func startOrWaitForPermission() {
+        guard EventTap.hasAccessibilityPermission(prompt: true) else {
+            status.state = .needsPermission
+            waitForPermission()
             return
         }
         startTap()

@@ -209,6 +209,12 @@ final class Settings: ObservableObject {
     }
 }
 
+extension Notification.Name {
+    /// Posted when the word lists have been rebuilt, so the running scorer can
+    /// pick them up without a restart.
+    static let wmpWordListsRebuilt = Notification.Name("wmpWordListsRebuilt")
+}
+
 /// Whether the thing is actually watching the keyboard right now.
 ///
 /// Worth showing plainly: the settings window looks identical whether the tap
@@ -216,6 +222,7 @@ final class Settings: ObservableObject {
 final class RuntimeStatus: ObservableObject {
     enum State {
         case running
+        case buildingWordLists
         case previewOnly
         case needsPermission
         case noLayouts
@@ -226,6 +233,7 @@ final class RuntimeStatus: ObservableObject {
         var title: String {
             switch self {
             case .running: "กำลังทำงาน"
+            case .buildingWordLists: "กำลังสร้างคลังคำ"
             case .previewOnly: "โหมดดู UI เท่านั้น"
             case .needsPermission: "ยังไม่ได้สิทธิ์ Accessibility"
             case .noLayouts: "ไม่เจอเลย์เอาต์ไทยหรืออังกฤษ"
@@ -236,6 +244,7 @@ final class RuntimeStatus: ObservableObject {
         var detail: String {
             switch self {
             case .running: "แก้การพิมพ์ให้อยู่ทุกแอป"
+            case .buildingWordLists: "อ่านดิกชันนารีกับข้อความในเครื่องนี้ ครั้งเดียวตอนติดตั้ง ใช้เวลาราวครึ่งนาที"
             case .previewOnly: "รันด้วย --preview อยู่ ยังไม่ได้ดักคีย์บอร์ด ให้เปิดแอปจริงถึงจะแก้ให้"
             case .needsPermission: "เปิดสิทธิ์ให้ wmp-ไทย ใน Privacy & Security > Accessibility แล้วมันจะเริ่มทำงานเองทันที ไม่ต้องเปิดแอปใหม่"
             case .noLayouts: "เพิ่ม Thai และ ABC ใน Keyboard > Input Sources"
@@ -246,6 +255,7 @@ final class RuntimeStatus: ObservableObject {
         var symbol: String {
             switch self {
             case .running: "checkmark.circle.fill"
+            case .buildingWordLists: "clock"
             case .previewOnly: "eye"
             default: "exclamationmark.triangle.fill"
             }
