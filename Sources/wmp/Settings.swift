@@ -2,10 +2,8 @@ import Combine
 import Foundation
 import WmpCore
 
-/// User-visible knobs, stored in UserDefaults so they survive restarts.
-///
-/// Observable so the settings window and the running engine stay in step: the
-/// window edits this, the app delegate pushes the result into the corrector.
+/// User-visible knobs, stored in UserDefaults. Observable so the window and the
+/// running engine stay in step.
 final class Settings: ObservableObject {
     private let defaults = UserDefaults.standard
 
@@ -159,8 +157,7 @@ final class Settings: ObservableObject {
         return thresholds
     }
 
-    /// Three ready-made settings so the sliders stay an "advanced" detail
-    /// rather than the first thing anyone has to understand.
+    /// Ready-made settings, so the sliders stay an advanced detail.
     enum Sensitivity: String, CaseIterable, Identifiable {
         case careful, balanced, eager
         var id: String { rawValue }
@@ -241,10 +238,8 @@ extension Notification.Name {
     static let wmpWordListsRebuilt = Notification.Name("wmpWordListsRebuilt")
 }
 
-/// Whether the thing is actually watching the keyboard right now.
-///
-/// Worth showing plainly: the settings window looks identical whether the tap
-/// is live or not, and "why is nothing being corrected" is otherwise invisible.
+/// Whether the tool is actually watching the keyboard. Shown plainly, because
+/// the window looks identical either way.
 final class RuntimeStatus: ObservableObject {
     enum State {
         case running

@@ -1,11 +1,8 @@
 import ApplicationServices
 import Foundation
 
-/// What kind of field has focus, and on what page.
-///
-/// Used to stay out of places typing corrections do not belong: password boxes,
-/// login forms, and any site the user has excluded. Read once per word rather
-/// than per keystroke, because each of these is a cross-process call.
+/// What kind of field has focus, and on what page. Read once per word: each
+/// lookup is a cross-process call.
 struct FieldContext {
     var subrole: String?
     /// Whatever the app calls this field: title, placeholder or description.
@@ -15,8 +12,8 @@ struct FieldContext {
 
     var isSecure: Bool { subrole == (kAXSecureTextFieldSubrole as String) }
 
-    /// Fields that ask for credentials. Matching on what the field calls itself
-    /// is a heuristic, but it is the only signal a web page reliably exposes.
+    /// Fields asking for credentials. The field's own label is the only signal
+    /// a web page reliably exposes.
     var looksSensitive: Bool {
         if isSecure { return true }
         let needles = ["password", "passcode", "username", "user name", "user id", "email", "e-mail",

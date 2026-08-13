@@ -34,10 +34,7 @@ public struct CorrectorThresholds: Sendable {
 }
 
 /// Decides whether a finished word was typed on the wrong layout.
-///
-/// Deliberately conservative: when both readings are plausible words (typing
-/// "ok" on the Thai layout gives "นา", a real Thai word) it does nothing. A
-/// missed correction costs a keystroke; a wrong one costs trust.
+/// Conservative by design: ambiguous pairs are left alone.
 public final class Corrector {
     private let layouts: LayoutPair
     private let scorer: LanguageScorer
@@ -88,11 +85,9 @@ public final class Corrector {
             else { return nil }
 
         case .thai:
-            // Meant English. Coverage cannot be trusted here: "good for" lands as
-            // "เนนก ดนพ", and ICU splits that into เน + นก + ด + นพ, every piece a
-            // syllable the dictionary knows, so it scores as perfect Thai. What
-            // actually separates the cases is whether a *substantial* Thai word is
-            // present, and whether the English reading is a word people type.
+            // Meant English. Coverage lies here: "good for" lands as "เนนก ดนพ",
+            // which ICU splits into syllables the dictionary knows. What separates
+            // the cases is a substantial Thai word, and a common English reading.
             if ThaiOrthography.violations(in: original) > 0 {
                 break   // Thai that breaks spelling rules was never Thai
             }
@@ -108,13 +103,8 @@ public final class Corrector {
         )
     }
 
-    /// Decides mid-word, before the space is ever pressed, so the keyboard can
-    /// be switched while typing continues.
-    ///
-    /// Much stricter than `evaluate`, because being wrong here interrupts a word
-    /// in progress rather than tidying a finished one. It fires only when the
-    /// text so far is impossible in the language it landed in *and* is a real
-    /// beginning of a word in the other one.
+    /// Decides mid-word, so the keyboard can switch while typing continues.
+    /// Stricter than `evaluate`: interrupting a word costs more than tidying one.
     public func evaluatePrefix(_ buffer: TypingBuffer) -> Correction? {
         guard buffer.count >= thresholds.minimumPrefixLength,
               buffer.count <= thresholds.maximumLength,
@@ -143,19 +133,14 @@ public final class Corrector {
             // Thai keys, English intent.
             guard scorer.isEnglishPrefix(replacement) || scorer.isEnglishWord(replacement) else { return nil }
             if ThaiOrthography.violations(in: original) == 0 {
-                // No broken spelling to lean on (English words made only of Thai
-                // consonants land here), so demand more: a few more keys, all of
-                // them letters in English, and nothing that starts a Thai word.
-                // A whole English word, not just a promising start: without the
-                // spelling giveaway, a prefix like "dita" matches Thai fragments
-                // too often to act on.
+                // No broken spelling to lean on, so demand a whole common word:
+                // a prefix like "dita" matches Thai fragments too often.
+                // A real Thai word inside means someone is typing Thai and is
+                // not done yet: "ทำหน" on the way to "ทำหน้าที่".
                 guard buffer.count >= thresholds.minimumPrefixLength + 1,
                       isPlausiblyTyped(replacement),
                       scorer.isCommonEnglishWord(replacement),
                       !scorer.isThaiPrefix(original), !scorer.isThaiWord(original),
-                      // "ทำหน" on the way to "ทำหน้าที่" reads as ท-ำ-ห-น, and
-                      // both halves are real words. Any real Thai word inside
-                      // means someone is typing Thai and is not done yet.
                       scorer.longestKnownThaiToken(original) == 0
                 else { return nil }
             }
@@ -173,9 +158,8 @@ public final class Corrector {
         script == .thai ? scorer.isReadableThai(text) : scorer.isReadableLatin(text)
     }
 
-    /// Letters only, and cased the way someone actually types: "mAKE" is what
-    /// the Thai word "ทฤษฎ" renders to, because its shift keys become capitals.
-    /// Nobody typing English produces that.
+    /// Letters only, cased the way people type. Thai shift keys render as
+    /// capitals mid-word ("ทฤษฎ" becomes "mAKE"), which English never is.
     private func isPlausiblyTyped(_ text: String) -> Bool {
         guard text.allSatisfy({ $0.isLetter }) else { return false }
         return !text.dropFirst().contains(where: \.isUppercase)
@@ -195,9 +179,7 @@ public final class Corrector {
         return false
     }
 
-    /// What would happen to text someone types, word by word. Used by the
-    /// settings window so thresholds can be judged against real examples
-    /// instead of guessed at.
+    /// What would happen to text, word by word. Drives the "try it" pane.
     public struct Simulation: Identifiable, Sendable {
         public let id = UUID()
         public let word: String
@@ -243,13 +225,8 @@ public final class Corrector {
         }
     }
 
-    /// Flips a selection.
-    ///
-    /// If it is all one script, the user picked it on purpose: flip the lot. If
-    /// it mixes Thai and Latin, flipping everything would break whichever half
-    /// was already right, so each word is judged on its own and only the ones
-    /// that read better the other way are touched. Whitespace is preserved as
-    /// typed.
+    /// Flips a selection: all of it when it is one script, otherwise only the
+    /// words that read better the other way. Whitespace is preserved.
     public func convertSelection(_ text: String, layouts: LayoutPair) -> String {
         // Judge word by word first. "l;ylfu hello" is all Latin characters, but
         // only half of it is a mistake, so looking at which script the text is
@@ -291,12 +268,8 @@ public final class Corrector {
         CharacterSet.whitespacesAndNewlines.contains(scalar)
     }
 
-    /// Splits on scalars, not Characters.
-    ///
-    /// A Thai tone mark that opens a word attaches to the space before it: Swift
-    /// reads " ้ำสสน" as a cluster of space+ ้+ ำ followed by "สสน", so splitting
-    /// by Character quietly eats the first two marks of exactly the words this
-    /// tool exists to fix.
+    /// Splits on scalars, not Characters: a Thai mark opening a word binds to
+    /// the space before it, and Character splitting would eat it.
     static func words(in text: String) -> [String] {
         var words: [String] = []
         var current = ""

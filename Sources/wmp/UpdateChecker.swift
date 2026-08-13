@@ -1,11 +1,7 @@
 import Foundation
 
-/// Asks GitHub Releases whether a newer build exists.
-///
-/// Deliberately does not download or install anything: it points the user at the
-/// release page. Silent self-updating is a much bigger promise (signed appcasts,
-/// an updater process, rollback) and is worth adding only once the app is really
-/// being handed to other people.
+/// Asks GitHub Releases whether a newer build exists, and points at the release
+/// page. Installing updates in place is Sparkle's job, not this one's.
 @MainActor
 final class UpdateChecker: ObservableObject {
     enum State: Equatable {

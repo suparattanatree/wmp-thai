@@ -3,8 +3,7 @@ import ServiceManagement
 import SwiftUI
 import WmpCore
 
-/// The settings window: a sidebar and a grouped form, the shape System Settings
-/// uses, so it reads as part of the system rather than a utility bolted on.
+/// Settings window: sidebar and grouped form, the shape System Settings uses.
 final class SettingsWindowController: NSWindowController {
     convenience init(settings: Settings, log: FixLog, corrector: Corrector, layoutSummary: String, status: RuntimeStatus) {
         let root = SettingsView(settings: settings, log: log, corrector: corrector,
@@ -91,8 +90,7 @@ struct SettingsView: View {
     }
 }
 
-/// Says out loud when the tool is not actually watching the keyboard, with the
-/// one action that fixes it.
+/// Says when the tool is not watching the keyboard, and what fixes it.
 private struct StatusBanner: View {
     let state: RuntimeStatus.State
 
@@ -119,8 +117,7 @@ private struct StatusBanner: View {
     }
 }
 
-/// Title with a quiet line of explanation underneath: enough that no setting
-/// needs a manual, few enough words to stay out of the way.
+/// Title with a quiet line of explanation underneath.
 private func caption(_ title: String, _ detail: String) -> some View {
     VStack(alignment: .leading, spacing: 2) {
         Text(title)
@@ -512,7 +509,7 @@ private struct TryItPane: View {
 
 // MARK: - Word lists
 
-/// The three layers of vocabulary, and the one the user owns.
+/// The three layers of vocabulary.
 private struct WordsPane: View {
     @ObservedObject var settings: Settings
     @State private var userWords: [String] = WordListBuilder.words(at: WordListBuilder.userListURL)

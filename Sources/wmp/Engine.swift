@@ -47,10 +47,8 @@ final class Engine {
     // MARK: - Event entry points
 
     func handleKeyDown(_ event: CGEvent) {
-        // Our own synthetic events are stamped, so they are filtered by identity
-        // rather than by a busy flag. Keys the user types while a fix is being
-        // replayed still belong in the buffer: they land on screen either way,
-        // and dropping them would leave the buffer out of step with the text.
+        // Our own events are stamped, so identity filters them. Keys typed
+        // during a replay still belong in the buffer: they land on screen.
         guard settings.enabled, !Replayer.isOurs(event) else { return }
         // Never look at anything typed into a password field.
         guard !IsSecureEventInputEnabled() else { buffer.reset(); return }
@@ -145,9 +143,7 @@ final class Engine {
         idleTimer = nil
     }
 
-    /// A pause is weaker evidence than a finished word but stronger than the
-    /// middle of a burst, so try both rule sets: the full-word one first, then
-    /// the stricter mid-word one for words that are not finished yet.
+    /// A pause sits between a finished word and mid-burst, so try both rules.
     private func fixOnPause() {
         guard settings.enabled, settings.autoFix, !switchedThisWord, !buffer.isEmpty else { return }
         guard let correction = corrector.evaluate(buffer) ?? corrector.evaluatePrefix(buffer) else { return }
@@ -215,14 +211,11 @@ final class Engine {
         }
     }
 
-    /// `fromMenu` means our own menu is what triggered this: focus has to go back
-    /// to the app being typed in before any keystroke is posted, or the undo
-    /// lands on our menu instead of the text.
+    /// `fromMenu` hands focus back to the app being typed in first, or the undo
+    /// lands on our own menu.
     func revertLastFix(fromMenu: Bool = false) {
-        // A word that was fixed mid-way and typed on since: undo the whole word,
-        // not just the fragment that triggered the fix. The buffer holds the key
-        // presses, so rendering them in the other script gives what the user
-        // meant to see.
+        // A word fixed mid-way and typed on since: undo the whole word, not the
+        // fragment that triggered it.
         if switchedThisWord, !buffer.isEmpty, let script = buffer.script {
             let back: Script = script == .thai ? .latin : .thai
             let original = layouts.render(buffer.strokes, as: back)
@@ -252,9 +245,8 @@ final class Engine {
             lastFix = nil
             return
         }
-        // The fix may be old by now: the menu bar itself takes a click and an app
-        // switch to reach. Rather than forgetting the fix on every click, check
-        // that the text it produced is still sitting where it was left.
+        // The fix may be old: reaching the menu takes a click and an app switch.
+        // Check the text it produced is still where it was left.
         let typed = fix.correction.replacement + fix.trailing
         if let onScreen = replayer.focusedText() {
             guard onScreen.hasSuffix(typed) else { return }
@@ -278,11 +270,7 @@ final class Engine {
         }
     }
 
-    /// ⌃⌥L on a selection: flip whatever is highlighted to the other layout.
-    ///
-    /// This is the one that works on text somebody else typed, or on a sentence
-    /// noticed three lines later - no buffer needed, so it has no memory of how
-    /// the text got there.
+    /// ⌃⌥L: flip the selection. Works on text this tool never saw being typed.
     func convertSelection(fromMenu: Bool = false) {
         if fromMenu, let bundleID = lastExternalBundleID,
            let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID).first {

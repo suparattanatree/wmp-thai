@@ -1,13 +1,8 @@
 import ApplicationServices
 import Foundation
 
-/// Reads the text of whatever field has focus, through the Accessibility API we
-/// already hold permission for.
-///
-/// This exists because "how much does one backspace delete" is not a fixed
-/// answer: native Cocoa fields remove one Thai mark at a time, Electron and
-/// Chromium fields remove a whole cluster. Counting key presses is guesswork;
-/// looking at the text is not.
+/// Reads the focused field through the Accessibility API. Needed because one
+/// backspace deletes a mark in Cocoa and a whole cluster in Chromium.
 struct TextProbe {
     private let systemWide = AXUIElementCreateSystemWide()
 
@@ -21,8 +16,7 @@ struct TextProbe {
         return text
     }
 
-    /// Replaces the selection in place. Many apps allow this; the ones that do
-    /// not leave it to the caller to type over the selection instead.
+    /// Replaces the selection in place where the app allows it.
     @discardableResult
     func replaceSelection(with text: String) -> Bool {
         guard let field = focusedElement() else { return false }

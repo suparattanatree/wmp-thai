@@ -5,9 +5,8 @@ import Foundation
 /// be re-rendered through the other layout without guessing.
 public struct TypingBuffer {
     public private(set) var strokes: [Keystroke] = []
-    /// One entry per key press. Kept separate from `typed` because a Thai vowel
-    /// or tone mark merges into the previous grapheme cluster, so String's own
-    /// `removeLast()` would drop two key presses at once.
+    /// One entry per key press. Thai marks merge into the previous grapheme
+    /// cluster, so String's `removeLast()` would drop two presses at once.
     public private(set) var pieces: [String] = []
 
     public init() {}
@@ -54,11 +53,8 @@ public enum CharacterRole {
     case ignore
 }
 
-/// Only whitespace ends a word.
-///
-/// Punctuation cannot: nearly every symbol key on the Latin layout is a Thai
-/// letter on the Thai one, so "ขอบคุณ" typed in English is "-v[86I". Treating
-/// `-` or `[` as a boundary would shred exactly the words we are here to fix.
+/// Only whitespace ends a word. Punctuation cannot: symbol keys are Thai
+/// letters on the other layout, so "ขอบคุณ" typed in English is "-v[86I".
 public func role(of character: String) -> CharacterRole {
     guard let first = character.unicodeScalars.first else { return .ignore }
     if first.value < 0x20 { return .boundary }          // return, tab, control keys

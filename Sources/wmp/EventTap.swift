@@ -2,10 +2,8 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 
-/// A listen-only tap on keyboard and mouse events.
-///
-/// Listen-only on purpose: it cannot swallow or delay a keystroke even if this
-/// process stalls, so typing stays exactly as responsive as it was.
+/// A listen-only tap on keyboard and mouse events. It cannot swallow or delay a
+/// keystroke even if this process stalls.
 final class EventTap {
     private var tap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?

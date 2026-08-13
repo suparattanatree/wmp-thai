@@ -1,12 +1,8 @@
 import Compression
 import Foundation
 
-/// Builds the word lists from what is already on this Mac: the system Thai
-/// dictionary, and the Thai and English strings every app ships for its UI.
-///
-/// Runs on the user's own machine rather than shipping the result, so nothing
-/// derived from Apple's dictionaries is ever redistributed. Takes a few seconds
-/// once, on first launch.
+/// Builds the word lists from what is already on this Mac. Runs on the user's
+/// machine rather than shipping the result. Takes about half a minute, once.
 public enum WordListBuilder {
     public static let roots = ["/System/Library", "/System/Applications", "/Applications"]
 
@@ -75,13 +71,8 @@ public enum WordListBuilder {
     /// Builds both lists and writes them. `progress` is called with a short line
     /// of what it is doing, for the status the settings window shows.
     ///
-    /// `includeSystemDictionary` is off by default on purpose. Reading the
-    /// macOS Thai dictionary means decoding an undocumented binary format and
-    /// lifting the headwords out of content Apple licenses from a publisher.
-    /// It stays on the user's machine, but it is the one part of this that sits
-    /// in a legal grey area - and measurement says it barely matters: with UI
-    /// strings alone the tool still catches even formal words like ทฤษฎี and
-    /// ปรัชญา, because the readability rules do not need a dictionary.
+    /// `includeSystemDictionary` is off by default: it decodes an undocumented
+    /// format holding licensed content, and measurement says it barely helps.
     @discardableResult
     public static func build(includeSystemDictionary: Bool = false,
                              progress: ((String) -> Void)? = nil) throws -> (thai: Int, english: Int) {
@@ -132,12 +123,8 @@ public enum WordListBuilder {
         return String(data: data, encoding: .utf8)
     }
 
-    /// Both languages in one pass over the disk, spread across cores.
-    ///
-    /// The naive version walked /Applications once per language and took over a
-    /// minute; nobody waits that long on first launch. Listing paths is cheap,
-    /// reading and tokenising thousands of files is not, so that part is what
-    /// gets parallelised.
+    /// Both languages in one pass over the disk, spread across cores. Walking
+    /// once per language took over a minute.
     static func harvestInterfaceStrings(minimumCount: Int = 3) -> (thai: Set<String>, english: Set<String>) {
         var thaiFiles: [String] = []
         var englishFiles: [String] = []

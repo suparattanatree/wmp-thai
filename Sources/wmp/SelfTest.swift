@@ -1,11 +1,8 @@
 import Foundation
 import WmpCore
 
-/// Replays realistic wrong-layout typing through the real decision path and
-/// prints what would happen. Needs no Accessibility permission, so it is the
-/// fastest way to judge whether the thresholds are behaving.
-///
-///   swift run wmp --selftest
+/// Replays wrong-layout typing through the real decision path. Needs no
+/// permissions: swift run wmp --selftest
 enum SelfTest {
     /// Words that should be rescued: what the user meant, and the layout they
     /// forgot to switch to.
@@ -193,9 +190,8 @@ enum SelfTest {
         print("\n\(passed) passed, \(failed) failed")
     }
 
-    /// Types thousands of correctly spelled words, one key at a time, and counts
-    /// how often the tool would have interfered. The number that matters is zero:
-    /// this runs against real vocabulary, not the handful of cases above.
+    /// Types thousands of correct words and counts how often the tool would
+    /// have interfered. The number that matters is zero.
     private static func bulkFalsePositiveCheck(layouts: LayoutPair, corrector: Corrector) {
         func words(from path: String, stride: Int, limit: Int) -> [String] {
             guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return [] }
@@ -272,9 +268,8 @@ enum TryDebug {
     }
 }
 
-/// `--typo <text>` renders what the text looks like when the layout was
-/// forgotten, then runs the verdicts on it. Saves hand-building wrong-layout
-/// strings, which is easy to get wrong.
+/// `--typo <text>` renders the text as if the layout was forgotten, then runs
+/// the verdicts on it.
 enum TypoDebug {
     static func run(_ text: String) {
         guard let layouts = LayoutPair() else { return }
@@ -300,12 +295,8 @@ enum TypoDebug {
     }
 }
 
-/// `--sweep` answers "how many words does the list actually need".
-///
-/// Truncates the Thai list to the N most frequent words, then measures two
-/// things at each size: how many wrong-layout words get rescued, and how often
-/// correctly typed Thai gets mangled. The interesting number is where both
-/// curves flatten.
+/// `--sweep` measures how large the word list needs to be, by truncating it to
+/// the N most frequent words and testing catch rate and damage at each size.
 enum WordListSweep {
     static func run() {
         guard let layouts = LayoutPair() else { return }
@@ -368,9 +359,8 @@ enum WordListSweep {
     }
 }
 
-/// `--probe` prints what the tool can see about the field that has focus, after
-/// a few seconds' delay so you can click into the field you want to inspect.
-/// Used to check the credential and website rules against real pages.
+/// `--probe` prints what the tool sees about the focused field, after a delay
+/// so you can click into the field first.
 enum ProbeDebug {
     static func run() {
         print("คลิกในช่องที่อยากตรวจ แล้วรอ 5 วินาที...")

@@ -22,10 +22,8 @@ final class Replayer {
         isReplaying = true
         defer { isReplaying = false }
 
-        // How much one backspace removes depends on the app: native Cocoa fields
-        // delete a single Thai mark, Chromium and Electron delete the whole
-        // cluster. So delete against the text itself rather than against a count,
-        // and re-type anything an over-eager backspace took with it.
+        // One backspace removes a mark in Cocoa and a cluster in Chromium, so
+        // delete against the text itself and re-type any overshoot.
         let wanted = (original + trailing).unicodeScalars.count
         var restore = ""
 
@@ -38,10 +36,8 @@ final class Replayer {
                 postKey(deleteKeycode)
                 attempts += 1
                 guard let now = waitForChange(from: current) else {
-                    // The field stopped reporting changes. Rather than give up
-                    // mid-way and leave half the word behind ("fe" in front of a
-                    // corrected word), finish by count: one delete per remaining
-                    // key press, which is what a plain text field does.
+                    // Stopped reporting changes: finish by count rather than
+                    // leave half the old word behind.
                     blind = true
                     break
                 }
@@ -65,9 +61,8 @@ final class Replayer {
         type(restore + replacement + trailing)
     }
 
-    /// The app handles our delete asynchronously, so poll briefly for the text to
-    /// actually change. Nil means it never did: the field is not one we can read
-    /// our way through, so stop rather than hammer it with more deletes.
+    /// Deletes are handled asynchronously, so poll for the change. Nil means the
+    /// field never reported one.
     private func waitForChange(from previous: String) -> String? {
         for _ in 0..<24 {
             usleep(2500)
@@ -88,9 +83,7 @@ final class Replayer {
     @discardableResult
     func replaceSelection(with text: String) -> Bool { probe.replaceSelection(with: text) }
 
-    /// Last resort for reading a selection: press ⌘C and look at the clipboard,
-    /// then put the clipboard back the way it was. Apps that expose nothing to
-    /// the Accessibility API still answer to this.
+    /// Last resort for reading a selection: ⌘C, read the clipboard, put it back.
     func copySelection() -> String? {
         isReplaying = true
         defer { isReplaying = false }
@@ -141,9 +134,8 @@ final class Replayer {
         guard let down = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
               let up = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false)
         else { return }
-        // Only the key-down carries the text. Chromium and Electron insert on
-        // both edges, so putting the string on the key-up as well types every
-        // character twice: "ที่ใช้" came out as "ททีี่่ใใชช้้".
+        // Only the key-down carries the text: Chromium inserts on both edges,
+        // which typed every character twice.
         down.keyboardSetUnicodeString(stringLength: utf16.count, unicodeString: &utf16)
         stamp(down); stamp(up)
         down.post(tap: .cgSessionEventTap)
