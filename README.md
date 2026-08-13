@@ -87,6 +87,11 @@ unpack it, move the app to /Applications and open it. Grant Accessibility access
 in System Settings under Privacy & Security; the app starts working the moment
 permission is given, without a relaunch.
 
+The build is not notarized yet, so macOS refuses the first launch. Open System
+Settings, go to Privacy & Security, and press Open Anyway near the bottom. This
+is needed once; Control-clicking the app no longer bypasses this on macOS 15 and
+later.
+
 Updates are checked quietly and shown in the settings window, never as a popup.
 Pressing the button downloads and installs through Sparkle, with each update
 verified against a signing key before it is applied.

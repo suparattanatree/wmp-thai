@@ -34,8 +34,10 @@ if security find-identity -v -p codesigning | grep -q "Developer ID Application"
 else
     echo "!! no Developer ID certificate: skipping notarization"
     echo "!! Gatekeeper will block this build on other Macs"
-    NOTES="Built without a Developer ID certificate, so macOS will refuse to open it on other machines. Usable for testing on the machine that built it."
-    PRERELEASE="--prerelease"
+    NOTES="Not notarized yet. On first launch macOS will refuse to open it: go to System Settings, Privacy and Security, and press Open Anyway near the bottom. Only needed once.
+
+Move the app to /Applications, open it, then grant Accessibility access in System Settings under Privacy and Security. It starts working as soon as permission is given."
+    PRERELEASE=""
 fi
 
 echo "==> packaging"
