@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>wmp-ไทย</title>
+    <item>
+      <title>0.0.1</title>
+      <pubDate>Fri, 14 Aug 2026 05:09:02 +0700</pubDate>
+      <sparkle:version>0.0.1</sparkle:version>
+      <sparkle:shortVersionString>0.0.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+      <enclosure url="https://github.com/suparattanatree/wmp-thai/releases/download/v0.0.1/wmp-thai-0.0.1.zip" length="1901291" type="application/octet-stream" sparkle:edSignature="1ILB3TULU9unBt+uYYXk7ib0V82WVZPiah0jZTllJSs1YulHEQx+a6qPkzGByYNBD4rZ9x+vggsSeyeyF33PCw==" length="1901291" />
+    </item>
+  </channel>
+</rss>
