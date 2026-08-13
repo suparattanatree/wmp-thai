@@ -50,8 +50,22 @@ public enum WordListBuilder {
 
     public static func save(userWords: [String]) {
         try? FileManager.default.createDirectory(at: storageDirectory, withIntermediateDirectories: true)
-        try? userWords.sorted().joined(separator: "\n").write(to: userListURL, atomically: true, encoding: .utf8)
+        let header = "# คำที่คุณเพิ่มเอง หรือที่จำไว้ตอนคุณกด ⌃⌥Z ย้อนการแก้\n"
+            + "# ลบไฟล์นี้ทิ้งได้ตลอด แอปจะสร้างใหม่ให้เอง\n"
+        try? (header + userWords.sorted().joined(separator: "\n"))
+            .write(to: userListURL, atomically: true, encoding: .utf8)
     }
+
+    /// Stamped into every generated list. The lists are built from one Mac's own
+    /// system resources: fine to hold locally, not ours to hand around.
+    static let generatedHeader = """
+        # สร้างจากเครื่องนี้โดย wmp-ไทย จากข้อความและดิกชันนารีที่ติดตั้งอยู่ในเครื่อง
+        # เป็นไฟล์เฉพาะเครื่อง ไม่ได้ตั้งใจให้เอาไปแจกต่อ ลบทิ้งได้ แอปสร้างใหม่ให้เอง
+        #
+        # Generated on this Mac from its own installed resources.
+        # Local to this machine; not intended for redistribution.
+
+        """
 
     public static var isBuilt: Bool {
         FileManager.default.fileExists(atPath: thaiListURL.path)
@@ -84,8 +98,10 @@ public enum WordListBuilder {
 
         let thai = headwords.union(harvested.thai)
         let english = harvested.english
-        try thai.sorted().joined(separator: "\n").write(to: thaiListURL, atomically: true, encoding: .utf8)
-        try english.sorted().joined(separator: "\n").write(to: englishListURL, atomically: true, encoding: .utf8)
+        try (generatedHeader + thai.sorted().joined(separator: "\n"))
+            .write(to: thaiListURL, atomically: true, encoding: .utf8)
+        try (generatedHeader + english.sorted().joined(separator: "\n"))
+            .write(to: englishListURL, atomically: true, encoding: .utf8)
         progress?("เสร็จแล้ว")
         return (thai.count, english.count)
     }

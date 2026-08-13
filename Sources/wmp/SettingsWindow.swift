@@ -510,8 +510,11 @@ private struct WordsPane: View {
                     LabeledContent("ที่มากับแอป", value: "\(curatedCount) คำ")
                     LabeledContent("ที่คุณเพิ่มเอง", value: "\(userWords.count) คำ")
                 } footer: {
-                    Text("คำที่คุณกด ⌃⌥Z ย้อนการแก้ จะถูกจำไว้ตรงนี้ให้เอง")
-                        .font(.callout).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("คำที่คุณกด ⌃⌥Z ย้อนการแก้ จะถูกจำไว้ตรงนี้ให้เอง และเก็บลงไฟล์ในเครื่อง")
+                        Text("นอกจากคำเหล่านี้ แอปไม่บันทึกสิ่งที่คุณพิมพ์ลงดิสก์ และไม่ส่งอะไรออกเน็ตเลย")
+                    }
+                    .font(.callout).foregroundStyle(.secondary)
                 }
             }
             .formStyle(.grouped)
@@ -544,6 +547,11 @@ private struct WordsPane: View {
                 Button { remove() } label: { Label("เอาออก", systemImage: "minus") }
                     .labelStyle(.iconOnly)
                     .disabled(selection == nil)
+                Button("ล้างทั้งหมด") {
+                    WordListBuilder.save(userWords: [])
+                    refresh()
+                }
+                .disabled(userWords.isEmpty)
             }
             .buttonStyle(.glass)
             .padding(12)
