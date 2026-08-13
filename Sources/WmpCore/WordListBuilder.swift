@@ -184,6 +184,34 @@ public enum WordListBuilder {
                 Set(englishCounts.filter { $0.value >= minimumCount }.keys))
     }
 
+    /// Same harvest, but keeping how often each word appeared. Used to answer
+    /// "how big does the list need to be" by measuring instead of guessing.
+    public static func thaiWordFrequencies() -> [(word: String, count: Int)] {
+        var counts: [String: Int] = [:]
+        let locale = Locale(identifier: "th_TH") as CFLocale
+        for root in roots {
+            guard let walker = FileManager.default.enumerator(atPath: root) else { continue }
+            for case let relative as String in walker {
+                guard relative.hasSuffix(".strings") || relative.hasSuffix(".stringsdict"),
+                      relative.contains("th.lproj/"),
+                      let text = stringsFileText(root + "/" + relative), hasThai(text)
+                else { continue }
+                let cf = text as CFString
+                let tokenizer = CFStringTokenizerCreate(
+                    nil, cf, CFRangeMake(0, CFStringGetLength(cf)),
+                    kCFStringTokenizerUnitWordBoundary, locale
+                )
+                let ns = text as NSString
+                while CFStringTokenizerAdvanceToNextToken(tokenizer) != [] {
+                    let range = CFStringTokenizerGetCurrentTokenRange(tokenizer)
+                    let token = ns.substring(with: NSRange(location: range.location, length: range.length))
+                    if allThai(token), token.count >= 2 { counts[token, default: 0] += 1 }
+                }
+            }
+        }
+        return counts.sorted { $0.value > $1.value }.map { (word: $0.key, count: $0.value) }
+    }
+
     // MARK: - The system Thai dictionary
 
     static func inflate(_ data: Data) -> Data? {

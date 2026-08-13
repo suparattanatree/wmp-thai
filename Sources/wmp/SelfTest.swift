@@ -269,3 +269,71 @@ enum TypoDebug {
         }
     }
 }
+
+/// `--sweep` answers "how many words does the list actually need".
+///
+/// Truncates the Thai list to the N most frequent words, then measures two
+/// things at each size: how many wrong-layout words get rescued, and how often
+/// correctly typed Thai gets mangled. The interesting number is where both
+/// curves flatten.
+enum WordListSweep {
+    static func run() {
+        guard let layouts = LayoutPair() else { return }
+        FileHandle.standardError.write("อ่านความถี่คำจากเครื่อง...\n".data(using: .utf8)!)
+        let ranked = WordListBuilder.thaiWordFrequencies()
+        let totalOccurrences = ranked.reduce(0) { $0 + $1.count }
+        guard !ranked.isEmpty else { print("no words found"); return }
+
+        // Words people actually type follow the same distribution as the corpus,
+        // so weight the test set by frequency rather than sampling uniformly.
+        let sample = Array(ranked.prefix(4000)).filter { $0.word.count >= 3 }
+
+        print("คำทั้งหมดที่เจอ: \(ranked.count) คำ (\(totalOccurrences) ครั้ง)")
+        print("\nขนาดคลัง   ครอบคลุมข้อความ   จับคำผิดภาษาได้   แก้คำถูกผิดพลาด")
+
+        let sizes = [0, 200, 500, 1000, 2000, 5000, 10_000, ranked.count]
+        let directory = FileManager.default.temporaryDirectory
+        for size in sizes {
+            let slice = Array(ranked.prefix(size))
+            let covered = slice.reduce(0) { $0 + $1.count }
+            let coverage = Double(covered) / Double(totalOccurrences) * 100
+
+            let url = directory.appendingPathComponent("wmp-sweep-\(size).txt")
+            try? slice.map(\.word).joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
+
+            let scorer = LanguageScorer(thaiWordListURL: url)
+            let corrector = Corrector(layouts: layouts, scorer: scorer)
+
+            var caught = 0, tested = 0, mangled = 0
+            for entry in sample {
+                guard let strokes = layouts.strokes(for: entry.word, on: .thai) else { continue }
+                tested += 1
+
+                // Typed on the Latin layout by mistake: should be rescued.
+                let appeared = layouts.render(strokes, as: .latin)
+                var wrong = TypingBuffer()
+                for pair in zip(strokes, appeared.unicodeScalars) {
+                    wrong.append(keycode: pair.0.keycode, shift: pair.0.shift, character: String(pair.1))
+                    if corrector.evaluatePrefix(wrong) != nil { break }
+                }
+                if corrector.evaluatePrefix(wrong) != nil || corrector.evaluate(wrong) != nil { caught += 1 }
+
+                // Typed correctly: must be left alone.
+                var right = TypingBuffer()
+                var fired = false
+                for pair in zip(strokes, entry.word.unicodeScalars) {
+                    right.append(keycode: pair.0.keycode, shift: pair.0.shift, character: String(pair.1))
+                    if corrector.evaluatePrefix(right) != nil { fired = true }
+                }
+                if fired || corrector.evaluate(right) != nil { mangled += 1 }
+            }
+
+            let label = size == ranked.count ? "ทั้งหมด" : "\(size)"
+            print(String(format: "%-10@ %13.1f%% %15.1f%% %15.2f%%",
+                         label as NSString, coverage,
+                         Double(caught) / Double(tested) * 100,
+                         Double(mangled) / Double(tested) * 100))
+        }
+        print("\nวัดกับคำไทย \(sample.count) คำ ที่คนพิมพ์บ่อยที่สุด")
+    }
+}

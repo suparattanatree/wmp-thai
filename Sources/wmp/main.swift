@@ -16,6 +16,11 @@ if let index = CommandLine.arguments.firstIndex(of: "--typo"), CommandLine.argum
     exit(0)
 }
 
+if CommandLine.arguments.contains("--sweep") {
+    WordListSweep.run()
+    exit(0)
+}
+
 if CommandLine.arguments.contains("--selftest") {
     SelfTest.run()
     exit(0)
