@@ -192,7 +192,11 @@ private struct GeneralPane: View {
                             Text("\(updates.currentVersion) · ใหม่ล่าสุดแล้ว").foregroundStyle(.secondary)
                         case .available(let version, let url):
                             Text("\(updates.currentVersion) · มี \(version) ใหม่")
-                            Link("ดาวน์โหลด", destination: url)
+                            if updates.canInstall {
+                                Button("อัปเดตเลย") { updates.installUpdate() }
+                            } else {
+                                Link("ดาวน์โหลด", destination: url)
+                            }
                         case .failed(let reason):
                             Text("\(updates.currentVersion) · \(reason)").foregroundStyle(.secondary)
                         case .idle:
@@ -210,6 +214,7 @@ private struct GeneralPane: View {
             }
         }
         .formStyle(.grouped)
+        .task { updates.check() }
     }
 }
 

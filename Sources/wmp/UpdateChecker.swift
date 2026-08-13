@@ -1,4 +1,5 @@
 import Foundation
+import Sparkle
 
 /// Asks GitHub Releases whether a newer build exists, and points at the release
 /// page. Installing updates in place is Sparkle's job, not this one's.
@@ -13,6 +14,22 @@ final class UpdateChecker: ObservableObject {
     }
 
     @Published private(set) var state: State = .idle
+
+    /// Sparkle does the installing. It is only started when the app is running
+    /// from a bundle with a feed configured, so the test and preview modes do
+    /// not drag an updater along.
+    private let updater: SPUStandardUpdaterController? = {
+        guard Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") != nil else { return nil }
+        return SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
+    }()
+
+    var canInstall: Bool { updater != nil }
+
+    /// Hands over to Sparkle: download, verify, install, relaunch. Nothing
+    /// happens without this being pressed.
+    func installUpdate() {
+        updater?.checkForUpdates(nil)
+    }
 
     /// Set in Info.plist so the repository can move without touching code.
     private var repository: String {

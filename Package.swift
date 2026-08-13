@@ -4,6 +4,9 @@ import PackageDescription
 let package = Package(
     name: "wmp",
     platforms: [.macOS(.v26)],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", from: "2.6.0"),
+    ],
     targets: [
         .target(
             name: "WmpCore",
@@ -12,7 +15,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "wmp",
-            dependencies: ["WmpCore"],
+            dependencies: ["WmpCore", .product(name: "Sparkle", package: "Sparkle")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(name: "corpusgen", dependencies: ["WmpCore"], swiftSettings: [.swiftLanguageMode(.v5)]),

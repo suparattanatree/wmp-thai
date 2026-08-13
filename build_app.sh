@@ -8,6 +8,8 @@ APP="wmp-ไทย.app"
 VERSION=$(cat VERSION)
 BUILD=$(git rev-list --count HEAD 2>/dev/null || echo 1)
 REPO="suparattanatree/wmp-thai"
+FEED="https://raw.githubusercontent.com/$REPO/main/appcast.xml"
+PUBLIC_KEY="PHXKGwqMCkSIbyTO2XE9xgesIyPr4ACaCFDsU4+q3Gs="
 DEST="${1:-.}"
 BUNDLE="$DEST/$APP"
 
@@ -20,8 +22,13 @@ echo "==> assembling $BUNDLE"
 rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cp "$BIN/wmp" "$BUNDLE/Contents/MacOS/wmp"
+# SwiftPM links with an rpath next to the executable; frameworks live one level
+# up in a bundle.
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$BUNDLE/Contents/MacOS/wmp" 2>/dev/null || true
 cp -R "$BIN/wmp_WmpCore.bundle" "$BUNDLE/Contents/Resources/"
 cp Resources/AppIcon.icns "$BUNDLE/Contents/Resources/"
+mkdir -p "$BUNDLE/Contents/Frameworks"
+cp -R "$BIN/Sparkle.framework" "$BUNDLE/Contents/Frameworks/"
 
 cat > "$BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -37,6 +44,10 @@ cat > "$BUNDLE/Contents/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key><string>$BUILD</string>
     <key>WMPUpdateRepository</key><string>$REPO</string>
+    <key>SUFeedURL</key><string>$FEED</string>
+    <key>SUPublicEDKey</key><string>$PUBLIC_KEY</string>
+    <key>SUEnableAutomaticChecks</key><false/>
+    <key>SUAutomaticallyUpdate</key><false/>
     <key>LSMinimumSystemVersion</key><string>26.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHumanReadableCopyright</key><string>local build</string>
@@ -55,14 +66,22 @@ if [ -z "$IDENTITY" ]; then
         | grep -o '"Apple Development:[^"]*"' | head -1 | tr -d '"' || true)
 fi
 
-if [ -n "$IDENTITY" ]; then
-    echo "    identity: $IDENTITY"
-    codesign --force --deep --options runtime --sign "$IDENTITY" "$BUNDLE"
-else
-    echo "    no certificate found, using ad-hoc"
-    echo "    (Accessibility permission resets on every rebuild)"
-    codesign --force --deep --sign - "$BUNDLE"
-fi
+[ -n "$IDENTITY" ] || echo "    no certificate found, using ad-hoc (permission resets on every rebuild)"
+SIGN="${IDENTITY:--}"
+[ -n "$IDENTITY" ] && echo "    identity: $IDENTITY"
+
+# Nested code signs from the inside out; --deep is not enough for Sparkle.
+SPARKLE="$BUNDLE/Contents/Frameworks/Sparkle.framework"
+for target in \
+    "$SPARKLE/Versions/B/XPCServices/Installer.xpc" \
+    "$SPARKLE/Versions/B/XPCServices/Downloader.xpc" \
+    "$SPARKLE/Versions/B/Updater.app" \
+    "$SPARKLE/Versions/B/Autoupdate" \
+    "$SPARKLE"
+do
+    [ -e "$target" ] && codesign --force --options runtime --timestamp=none --sign "$SIGN" "$target"
+done
+codesign --force --options runtime --timestamp=none --sign "$SIGN" "$BUNDLE"
 
 echo "done: $BUNDLE"
 echo
