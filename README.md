@@ -80,20 +80,29 @@ default. It needs an undocumented format holding licensed content, and measuring
 says it barely helps: roughly 5,000 words is where accuracy stops improving, and
 the lists built from UI text already pass that.
 
+## Installing
+
+Download the latest zip from [Releases](https://github.com/suparattanatree/wmp-thai/releases),
+unpack it, move the app to /Applications and open it. Grant Accessibility access
+in System Settings under Privacy & Security; the app starts working the moment
+permission is given, without a relaunch.
+
+Updates are checked quietly and shown in the settings window, never as a popup.
+Pressing the button downloads and installs through Sparkle, with each update
+verified against a signing key before it is applied.
+
 ## Building
 
 ```bash
 ./build_app.sh
-mv wmp-ไทย.app /Applications/
-open /Applications/wmp-ไทย.app
 ```
-
-Then grant Accessibility access in System Settings, under Privacy & Security.
-The app starts working the moment permission is given, without a relaunch.
 
 `build_app.sh` signs with whatever certificate is on the machine. A real
 certificate keeps the app's identity stable, which is what lets macOS keep the
 Accessibility permission across rebuilds.
+
+`./release.sh <version>` builds, packages, signs the update, publishes it to
+GitHub Releases and updates the appcast the app reads.
 
 ## Development
 
