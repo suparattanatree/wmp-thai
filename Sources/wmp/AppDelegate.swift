@@ -93,7 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func buildWordLists() {
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            try? WordListBuilder.build(includeSystemDictionary: self?.settings.useSystemDictionary ?? false)
+            _ = try? WordListBuilder.build(includeSystemDictionary: self?.settings.useSystemDictionary ?? false)
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.scorer?.reload()
