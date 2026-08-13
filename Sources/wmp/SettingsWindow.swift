@@ -40,13 +40,14 @@ struct SettingsView: View {
     @State private var pane: Pane = .general
 
     enum Pane: String, CaseIterable, Identifiable {
-        case general, sensitivity, apps, tryIt
+        case general, sensitivity, words, apps, tryIt
         var id: String { rawValue }
 
         var title: String {
             switch self {
             case .general: "ทั่วไป"
             case .sensitivity: "ความไว"
+            case .words: "คลังคำ"
             case .apps: "ยกเว้นแอป"
             case .tryIt: "ลองดู"
             }
@@ -56,6 +57,7 @@ struct SettingsView: View {
             switch self {
             case .general: "gearshape"
             case .sensitivity: "dial.medium"
+            case .words: "text.book.closed"
             case .apps: "square.grid.2x2"
             case .tryIt: "text.cursor"
             }
@@ -77,6 +79,7 @@ struct SettingsView: View {
                     switch pane {
                     case .general: GeneralPane(settings: settings, layoutSummary: layoutSummary, status: status)
                     case .sensitivity: SensitivityPane(settings: settings)
+                    case .words: WordsPane()
                     case .apps: AppsPane(settings: settings)
                     case .tryIt: TryItPane(corrector: corrector, log: log)
                     }
@@ -133,29 +136,6 @@ private struct GeneralPane: View {
     @ObservedObject var status: RuntimeStatus
     @StateObject private var updates = UpdateChecker()
     @State private var openAtLogin = SMAppService.mainApp.status == .enabled
-    @State private var rebuilding = false
-    @State private var wordListCounts: (thai: Int, english: Int)?
-
-    private var wordListSummary: String {
-        if rebuilding { return "กำลังสร้าง..." }
-        if let counts = wordListCounts { return "ไทย \(counts.thai) · อังกฤษ \(counts.english) คำ" }
-        return WordListBuilder.isBuilt ? "สร้างจากเครื่องนี้แล้ว" : "ยังไม่ได้สร้าง"
-    }
-
-    /// Worth offering: installing a new dictionary or a new app adds vocabulary
-    /// the lists were built without.
-    private func rebuildWordLists() {
-        rebuilding = true
-        DispatchQueue.global(qos: .userInitiated).async {
-            let counts = try? WordListBuilder.build()
-            DispatchQueue.main.async {
-                wordListCounts = counts
-                rebuilding = false
-                NotificationCenter.default.post(name: .wmpWordListsRebuilt, object: nil)
-            }
-        }
-    }
-
     var body: some View {
         Form {
             Section {
@@ -233,13 +213,6 @@ private struct GeneralPane: View {
                             Text(updates.currentVersion).foregroundStyle(.secondary)
                         }
                         Button("ตรวจหาอัปเดต") { updates.check() }
-                    }
-                }
-                LabeledContent("คลังคำ") {
-                    HStack(spacing: 10) {
-                        Text(wordListSummary).foregroundStyle(.secondary)
-                        Button("สร้างใหม่") { rebuildWordLists() }
-                            .disabled(rebuilding)
                     }
                 }
                 LabeledContent("เลย์เอาต์", value: layoutSummary)
@@ -491,5 +464,113 @@ private struct TryItPane: View {
             return "แก้ให้ตอนเคาะ space"
         }
         return "ไม่แตะ"
+    }
+}
+
+// MARK: - Word lists
+
+/// The three layers of vocabulary, and the one the user owns.
+private struct WordsPane: View {
+    @State private var userWords: [String] = WordListBuilder.words(at: WordListBuilder.userListURL)
+    @State private var newWord = ""
+    @State private var selection: String?
+    @State private var rebuilding = false
+    @State private var builtCounts: (thai: Int, english: Int)?
+
+    private var curatedCount: Int {
+        WordListBuilder.words(at: WordListBuilder.curatedThaiURL).count
+            + WordListBuilder.words(at: WordListBuilder.curatedEnglishURL).count
+    }
+
+    private var builtSummary: String {
+        if rebuilding { return "กำลังสร้าง..." }
+        if let counts = builtCounts { return "ไทย \(counts.thai) · อังกฤษ \(counts.english)" }
+        guard WordListBuilder.isBuilt else { return "ยังไม่ได้สร้าง" }
+        let thai = WordListBuilder.words(at: WordListBuilder.thaiListURL).count
+        let english = WordListBuilder.words(at: WordListBuilder.englishListURL).count
+        return "ไทย \(thai) · อังกฤษ \(english)"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Form {
+                Section {
+                    LabeledContent("จากเครื่องนี้") {
+                        HStack(spacing: 10) {
+                            Text(builtSummary).foregroundStyle(.secondary)
+                            Button("สร้างใหม่") { rebuild() }.disabled(rebuilding)
+                        }
+                    }
+                    LabeledContent("ที่มากับแอป", value: "\(curatedCount) คำ")
+                    LabeledContent("ที่คุณเพิ่มเอง", value: "\(userWords.count) คำ")
+                } footer: {
+                    Text("คำที่คุณกด ⌃⌥Z ย้อนการแก้ จะถูกจำไว้ตรงนี้ให้เอง")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+            }
+            .formStyle(.grouped)
+            .frame(height: 190)
+
+            Divider()
+
+            if userWords.isEmpty {
+                ContentUnavailableView(
+                    "ยังไม่มีคำของคุณ",
+                    systemImage: "text.book.closed",
+                    description: Text("เพิ่มคำที่ไม่อยากให้มันแก้ หรือคำที่อยากให้มันรู้จัก")
+                )
+            } else {
+                List(selection: $selection) {
+                    ForEach(userWords, id: \.self) { word in
+                        Text(word).tag(word)
+                    }
+                }
+                .listStyle(.inset)
+            }
+
+            Divider()
+            HStack(spacing: 8) {
+                TextField("เพิ่มคำ", text: $newWord)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { add() }
+                Button("เพิ่ม") { add() }
+                    .disabled(newWord.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button { remove() } label: { Label("เอาออก", systemImage: "minus") }
+                    .labelStyle(.iconOnly)
+                    .disabled(selection == nil)
+            }
+            .buttonStyle(.glass)
+            .padding(12)
+        }
+    }
+
+    private func add() {
+        WordListBuilder.addUserWord(newWord)
+        newWord = ""
+        refresh()
+    }
+
+    private func remove() {
+        guard let selection else { return }
+        WordListBuilder.removeUserWord(selection)
+        self.selection = nil
+        refresh()
+    }
+
+    private func rebuild() {
+        rebuilding = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let counts = try? WordListBuilder.build()
+            DispatchQueue.main.async {
+                builtCounts = counts
+                rebuilding = false
+                NotificationCenter.default.post(name: .wmpWordListsRebuilt, object: nil)
+            }
+        }
+    }
+
+    private func refresh() {
+        userWords = WordListBuilder.words(at: WordListBuilder.userListURL)
+        NotificationCenter.default.post(name: .wmpWordListsRebuilt, object: nil)
     }
 }

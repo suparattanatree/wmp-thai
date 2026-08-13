@@ -185,6 +185,10 @@ final class Engine {
     func revertLastFix() {
         guard let (correction, trailing) = lastFix else { return }
         lastFix = nil
+        // Undoing a fix says the original was a real word we did not know.
+        // Remember it, so the same word is not "corrected" again tomorrow.
+        WordListBuilder.addUserWord(correction.original)
+        NotificationCenter.default.post(name: .wmpWordListsRebuilt, object: nil)
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.replayer.replace(correction.replacement, with: correction.original, trailing: trailing)

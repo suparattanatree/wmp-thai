@@ -19,6 +19,39 @@ public enum WordListBuilder {
 
     public static var thaiListURL: URL { storageDirectory.appendingPathComponent("th_words.txt") }
     public static var englishListURL: URL { storageDirectory.appendingPathComponent("en_words.txt") }
+    /// Words the user added by hand, or that the tool learned from being undone.
+    public static var userListURL: URL { storageDirectory.appendingPathComponent("user_words.txt") }
+
+    /// Lists we maintain in the repository and ship with the app, so vocabulary
+    /// can be improved by an update rather than only by what a Mac happens to
+    /// contain. Ours to redistribute, unlike anything harvested from the system.
+    public static var curatedThaiURL: URL? { Bundle.module.url(forResource: "curated_th", withExtension: "txt") }
+    public static var curatedEnglishURL: URL? { Bundle.module.url(forResource: "curated_en", withExtension: "txt") }
+
+    /// Reads a word list, skipping comments and blank lines.
+    public static func words(at url: URL?) -> [String] {
+        guard let url, let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        return text.split(separator: "\n")
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty && !$0.hasPrefix("#") }
+    }
+
+    public static func addUserWord(_ word: String) {
+        var existing = words(at: userListURL)
+        let trimmed = word.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, !existing.contains(trimmed) else { return }
+        existing.append(trimmed)
+        save(userWords: existing)
+    }
+
+    public static func removeUserWord(_ word: String) {
+        save(userWords: words(at: userListURL).filter { $0 != word })
+    }
+
+    public static func save(userWords: [String]) {
+        try? FileManager.default.createDirectory(at: storageDirectory, withIntermediateDirectories: true)
+        try? userWords.sorted().joined(separator: "\n").write(to: userListURL, atomically: true, encoding: .utf8)
+    }
 
     public static var isBuilt: Bool {
         FileManager.default.fileExists(atPath: thaiListURL.path)

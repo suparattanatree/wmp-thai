@@ -7,6 +7,7 @@ let package = Package(
     targets: [
         .target(
             name: "WmpCore",
+            resources: [.copy("Resources/curated_th.txt"), .copy("Resources/curated_en.txt")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .executableTarget(

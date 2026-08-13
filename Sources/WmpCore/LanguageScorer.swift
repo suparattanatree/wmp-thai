@@ -35,6 +35,28 @@ public final class LanguageScorer {
         loadThai(thaiWordListURL)
         if englishWords.isEmpty { loadEnglish() }
         loadCommonEnglish(commonEnglishURL)
+
+        // Three layers, in order of how specific they are to this user: what the
+        // Mac knows, what we ship, what the user told us.
+        add(WordListBuilder.words(at: WordListBuilder.curatedThaiURL))
+        add(WordListBuilder.words(at: WordListBuilder.curatedEnglishURL))
+        add(WordListBuilder.words(at: WordListBuilder.userListURL))
+    }
+
+    /// Files them by script, so a Thai entry protects Thai text and an English
+    /// one counts as a word people type.
+    private func add(_ words: [String]) {
+        for word in words {
+            if ThaiOrthography.containsThai(word) {
+                thaiWords.insert(word)
+                addPrefixes(of: word, to: &thaiPrefixes)
+            } else {
+                let lower = word.lowercased()
+                englishWords.insert(lower)
+                commonEnglishWords.insert(lower)
+                addPrefixes(of: lower, to: &englishPrefixes)
+            }
+        }
     }
 
     private func loadCommonEnglish(_ url: URL?) {
