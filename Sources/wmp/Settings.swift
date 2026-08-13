@@ -16,6 +16,7 @@ final class Settings: ObservableObject {
         static let liveSwitch = "liveSwitch"
         static let direction = "direction"
         static let guessWhenUnreadable = "guessWhenUnreadable"
+        static let useSystemDictionary = "useSystemDictionary"
         static let idleFix = "idleFix"
         static let idleDelay = "idleDelayMilliseconds"
         static let excluded = "excludedBundleIDs"
@@ -38,6 +39,8 @@ final class Settings: ObservableObject {
     /// read in the language it landed in.
     @Published var guessWhenUnreadable: Bool { didSet { defaults.set(guessWhenUnreadable, forKey: Key.guessWhenUnreadable) } }
     /// Fix as soon as typing pauses, without waiting for the space bar.
+    /// Off by default: see WordListBuilder.build for why.
+    @Published var useSystemDictionary: Bool { didSet { defaults.set(useSystemDictionary, forKey: Key.useSystemDictionary) } }
     @Published var idleFix: Bool { didSet { defaults.set(idleFix, forKey: Key.idleFix) } }
     /// How long a pause counts as "stopped typing", in milliseconds.
     @Published var idleDelayMilliseconds: Int { didSet { defaults.set(idleDelayMilliseconds, forKey: Key.idleDelay) } }
@@ -60,6 +63,7 @@ final class Settings: ObservableObject {
             Key.liveSwitch: true,
             Key.direction: Direction.both.rawValue,
             Key.guessWhenUnreadable: true,
+            Key.useSystemDictionary: false,
             Key.idleFix: true,
             Key.idleDelay: 400,
             Key.excluded: ["com.apple.keychainaccess", "com.1password.1password", "com.agilebits.onepassword7"],
@@ -75,6 +79,7 @@ final class Settings: ObservableObject {
         switchInputSource = defaults.bool(forKey: Key.switchInputSource)
         liveSwitch = defaults.bool(forKey: Key.liveSwitch)
         guessWhenUnreadable = defaults.bool(forKey: Key.guessWhenUnreadable)
+        useSystemDictionary = defaults.bool(forKey: Key.useSystemDictionary)
         idleFix = defaults.bool(forKey: Key.idleFix)
         idleDelayMilliseconds = defaults.integer(forKey: Key.idleDelay)
         direction = Direction(rawValue: defaults.string(forKey: Key.direction) ?? "") ?? .both

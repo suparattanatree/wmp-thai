@@ -9,7 +9,9 @@ import Foundation
 import WmpCore
 
 do {
-    let counts = try WordListBuilder.build { step in
+    // Same default as the app: the system dictionary is opt-in.
+    let useDictionary = CommandLine.arguments.contains("--with-system-dictionary")
+    let counts = try WordListBuilder.build(includeSystemDictionary: useDictionary) { step in
         FileHandle.standardError.write("\(step)\n".data(using: .utf8)!)
     }
     print("thai: \(counts.thai) words")

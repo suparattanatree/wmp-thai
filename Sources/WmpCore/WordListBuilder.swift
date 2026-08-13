@@ -60,12 +60,24 @@ public enum WordListBuilder {
 
     /// Builds both lists and writes them. `progress` is called with a short line
     /// of what it is doing, for the status the settings window shows.
+    ///
+    /// `includeSystemDictionary` is off by default on purpose. Reading the
+    /// macOS Thai dictionary means decoding an undocumented binary format and
+    /// lifting the headwords out of content Apple licenses from a publisher.
+    /// It stays on the user's machine, but it is the one part of this that sits
+    /// in a legal grey area - and measurement says it barely matters: with UI
+    /// strings alone the tool still catches even formal words like ทฤษฎี and
+    /// ปรัชญา, because the readability rules do not need a dictionary.
     @discardableResult
-    public static func build(progress: ((String) -> Void)? = nil) throws -> (thai: Int, english: Int) {
+    public static func build(includeSystemDictionary: Bool = false,
+                             progress: ((String) -> Void)? = nil) throws -> (thai: Int, english: Int) {
         try FileManager.default.createDirectory(at: storageDirectory, withIntermediateDirectories: true)
 
-        progress?("อ่านดิกชันนารีไทยของระบบ")
-        let headwords = dictionaryHeadwords()
+        var headwords: Set<String> = []
+        if includeSystemDictionary {
+            progress?("อ่านดิกชันนารีไทยของระบบ")
+            headwords = dictionaryHeadwords()
+        }
 
         progress?("อ่านข้อความในเครื่อง")
         let harvested = harvestInterfaceStrings()

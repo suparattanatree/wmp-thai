@@ -79,7 +79,7 @@ struct SettingsView: View {
                     switch pane {
                     case .general: GeneralPane(settings: settings, layoutSummary: layoutSummary, status: status)
                     case .sensitivity: SensitivityPane(settings: settings)
-                    case .words: WordsPane()
+                    case .words: WordsPane(settings: settings)
                     case .apps: AppsPane(settings: settings)
                     case .tryIt: TryItPane(corrector: corrector, log: log)
                     }
@@ -471,6 +471,7 @@ private struct TryItPane: View {
 
 /// The three layers of vocabulary, and the one the user owns.
 private struct WordsPane: View {
+    @ObservedObject var settings: Settings
     @State private var userWords: [String] = WordListBuilder.words(at: WordListBuilder.userListURL)
     @State private var newWord = ""
     @State private var selection: String?
@@ -501,6 +502,11 @@ private struct WordsPane: View {
                             Button("สร้างใหม่") { rebuild() }.disabled(rebuilding)
                         }
                     }
+                    Toggle(isOn: $settings.useSystemDictionary) {
+                        caption("ใช้ดิกชันนารีไทยของ macOS ด้วย",
+                                "ได้คำเพิ่มอีกราว 36,000 คำ แต่ต้องแกะรูปแบบไฟล์ของ Apple ซึ่งเป็นเนื้อหาที่เขาซื้อสิทธิ์มา ปิดไว้ก็ใช้ได้ปกติ")
+                    }
+                    .onChange(of: settings.useSystemDictionary) { _, _ in rebuild() }
                     LabeledContent("ที่มากับแอป", value: "\(curatedCount) คำ")
                     LabeledContent("ที่คุณเพิ่มเอง", value: "\(userWords.count) คำ")
                 } footer: {
@@ -560,7 +566,7 @@ private struct WordsPane: View {
     private func rebuild() {
         rebuilding = true
         DispatchQueue.global(qos: .userInitiated).async {
-            let counts = try? WordListBuilder.build()
+            let counts = try? WordListBuilder.build(includeSystemDictionary: settings.useSystemDictionary)
             DispatchQueue.main.async {
                 builtCounts = counts
                 rebuilding = false

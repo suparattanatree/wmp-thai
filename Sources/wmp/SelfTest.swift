@@ -172,8 +172,7 @@ enum SelfTest {
             return Swift.stride(from: 0, to: all.count, by: stride).prefix(limit).map { all[$0] }
         }
 
-        let thaiList = Bundle.main.url(forResource: "th_words", withExtension: "txt")?.path
-            ?? "Sources/WmpCore/Resources/th_words.txt"
+        let thaiList = WordListBuilder.thaiListURL.path
         let samples: [(script: Script, words: [String])] = [
             (.thai, words(from: thaiList, stride: 7, limit: 3000)),
             (.latin, words(from: "/usr/share/dict/words", stride: 40, limit: 3000)),
